@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useCartStore } from '../stores/cart'
 import { useToastStore } from '../stores/toast'
 import { api } from '../lib/api'
+import { getProductCover } from '../lib/productCovers'
 
 type LoadState = 'loading' | 'ready' | 'empty' | 'error'
 
@@ -194,11 +195,12 @@ const load = async () => {
     const name = String(x.name ?? '商品')
     const price = Number(x.price ?? 0)
     const stock = Number(x.stock ?? 0)
+    const coverUrl = getProductCover(name)
     const p: Product = {
       id: String(x.id ?? id.value),
       title: name,
       desc: String(x.description ?? ''),
-      media: [coverSvg(name, '#aa3bff')],
+      media: [coverUrl || coverSvg(name, '#aa3bff')],
       rating: 4.6,
       tags: [],
       activity: null,
@@ -245,7 +247,14 @@ onMounted(() => {
       <div v-else class="body">
         <section class="media" aria-label="商品图片">
           <div class="track">
-            <img v-for="(m, i) in product.media" :key="i" class="img" :src="m" :alt="product.title" />
+            <img
+              v-for="(m, i) in product.media"
+              :key="i"
+              class="img"
+              :src="m"
+              :alt="product.title"
+              @error="(e) => ((e.target as HTMLImageElement).src = coverSvg(product!.title, '#aa3bff'))"
+            />
           </div>
         </section>
 
@@ -468,7 +477,8 @@ onMounted(() => {
 .img {
   width: 100%;
   height: 220px;
-  object-fit: cover;
+  object-fit: contain;
+  object-position: center center;
   border-radius: 12px;
   scroll-snap-align: start;
   background: var(--code-bg);
@@ -774,9 +784,7 @@ onMounted(() => {
     margin: 0 auto;
   }
 
-  .img {
-    height: 320px;
-  }
+  .img { height: 320px; }
 
   .action {
     max-width: 1120px;

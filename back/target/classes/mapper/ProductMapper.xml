@@ -23,8 +23,8 @@
     </select>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO products(category_id, name, description, price, stock, status, create_time, update_time)
-        VALUES (#{categoryId}, #{name}, #{description}, #{price}, #{stock}, #{status}, NOW(), NOW())
+        INSERT INTO products(category_id, name, description, tags, price, stock, status, create_time, update_time)
+        VALUES (#{categoryId}, #{name}, #{description}, #{tags}, #{price}, #{stock}, #{status}, NOW(), NOW())
     </insert>
 
     <update id="update">
@@ -33,6 +33,7 @@
             <if test="categoryId != null">category_id = #{categoryId},</if>
             <if test="name != null">name = #{name},</if>
             <if test="description != null">description = #{description},</if>
+            <if test="tags != null">tags = #{tags},</if>
             <if test="price != null">price = #{price},</if>
             <if test="stock != null">stock = #{stock},</if>
             <if test="status != null">status = #{status},</if>
