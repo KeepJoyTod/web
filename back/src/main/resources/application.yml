@@ -18,6 +18,3 @@ mybatis:
   configuration:
     map-underscore-to-camel-case: true
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
-    springdoc:
-      # 自定义 OpenAPI 文档的访问路径，默认为 /v3/api-docs
-
