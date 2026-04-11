@@ -63,6 +63,12 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <!-- 与Spring Boot 3.2.x兼容的版本 -->
+            <version>2.3.0</version>
+        </dependency>
     </dependencies>
     
     <build>
