@@ -41,7 +41,7 @@ const submit = async () => {
   submitting.value = true
   try {
     await new Promise((r) => window.setTimeout(r, 450))
-    const id = reviews.create({
+    const id = await reviews.create({
       orderId: orderId.value,
       productId: productId.value,
       rating: rating.value,
@@ -168,4 +168,3 @@ const submit = async () => {
   color: var(--text-h);
 }
 </style>
-

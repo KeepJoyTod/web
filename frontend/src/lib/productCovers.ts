@@ -16,27 +16,20 @@ type Rule = {
 const phoneRules: Rule[] = [
   {
     keyword: 'iphone 15 pro',
-    url: 'https://images.pexels.com/photos/29020349/pexels-photo-29020349.jpeg?auto=compress&cs=tinysrgb&w=1200',
+    url: '/static/iphone 15 pro.webp',
   },
-  {
-    keyword: 'iphone 17 ',
-    url: 'https://images.pexels.com/photos/34624326/pexels-photo-34624326.jpeg?auto=compress&cs=tinysrgb&w=1200',
-  },
-  {
-    keyword: 'xiaomi 17 pro',
-    url: 'https://images.pexels.com/photos/33376151/pexels-photo-33376151.jpeg?auto=compress&cs=tinysrgb&w=1200',
-  },
+  
   {
     keyword: 'k70',
-    url: 'https://images.pexels.com/photos/1092644/pexels-photo-1092644.jpeg?auto=compress&cs=tinysrgb&w=1200',
+    url: '/static/k70.webp',
   },
   {
     keyword: 'magic6 pro',
-    url: 'https://images.pexels.com/photos/404280/pexels-photo-404280.jpeg?auto=compress&cs=tinysrgb&w=1200',
+    url: '/static/magic6 pro.webp',
   },
   {
-    keyword: 'x100',
-    url: 'https://images.pexels.com/photos/47261/pexels-photo-47261.jpeg?auto=compress&cs=tinysrgb&w=1200',
+    keyword: 'vivo X100',
+    url: '/static/vivo X100.webp',
   },
   {
     keyword: ' ace ',
@@ -516,7 +509,10 @@ const applyRules = (name: string, rules: Rule[]): string | null => {
   return null
 }
 
-export const getProductCover = (name: string, hint?: ProductCategoryHint): string | null => {
+export const getProductCover = (name: string, hint?: ProductCategoryHint, id?: string | number): string | null => {
+  const idStr = id === undefined || id === null ? '' : String(id).trim()
+  if (idStr) return `/product_${idStr}.jpg`
+
   const phone = applyRules(name, phoneRules)
   if (phone) return phone
   const computer = applyRules(name, computerRules)

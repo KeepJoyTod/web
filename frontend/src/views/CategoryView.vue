@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import UiButton from '../components/ui/UiButton.vue'
@@ -172,7 +172,7 @@ const load = async () => {
   const hint = hintMap[catId]
   const items: Product[] = list.map((x: any) => {
     const name = String(x.name ?? '商品')
-    const coverUrl = getProductCover(name, hint)
+    const coverUrl = getProductCover(name, hint, String(x.id ?? ''))
     return {
       id: String(x.id ?? ''),
       title: name,

@@ -113,7 +113,7 @@ const load = async () => {
       const name = String(x.name ?? x.title ?? '商品')
       const price = Number(x.price ?? 0)
       const id = String(x.id ?? '')
-      const coverUrl = getProductCover(name)
+      const coverUrl = getProductCover(name, undefined, id)
       return {
         id,
         title: name,

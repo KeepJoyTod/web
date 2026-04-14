@@ -158,9 +158,10 @@ const load = async () => {
     all.value = list.map((x: any, i: number) => {
       const name = String(x.name ?? '商品')
       const price = Number(x.price ?? 0)
-      const coverUrl = getProductCover(name, 'appliance')
+      const id = String(x.id ?? '')
+      const coverUrl = getProductCover(name, 'appliance', id)
       return {
-        id: String(x.id ?? ''),
+        id,
         title: name,
         price,
         cover: coverUrl || coverSvg(name, ['#16a34a', '#2563eb', '#0ea5e9', '#f59e0b', '#ec4899', '#aa3bff'][i % 6]),
