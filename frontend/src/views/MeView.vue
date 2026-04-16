@@ -63,6 +63,10 @@ const logout = () => {
           <span>我的订单</span>
           <span class="arrow">›</span>
         </button>
+        <button class="entry" type="button" @click="goAuthed('favorites')">
+          <span>我的收藏</span>
+          <span class="arrow">›</span>
+        </button>
         <button class="entry" type="button" @click="goAuthed('messages')">
           <span>消息中心</span>
           <span class="right">
@@ -72,6 +76,10 @@ const logout = () => {
         </button>
         <button class="entry" type="button" @click="goAuthed('aftersales')">
           <span>售后</span>
+          <span class="arrow">›</span>
+        </button>
+        <button class="entry" type="button" @click="router.push({ name: 'helpCenter' })">
+          <span>帮助中心</span>
           <span class="arrow">›</span>
         </button>
       

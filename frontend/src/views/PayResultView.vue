@@ -31,6 +31,18 @@ const status = computed(() => orderDraft.paymentStatus)
 const payable = computed(() => orderDraft.draft.amounts?.payable ?? 0)
 const priceFmt = new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' })
 
+const channel = computed(() => {
+  const raw = route.query.channel
+  const v = typeof raw === 'string' ? raw : ''
+  if (v === 'wechat' || v === 'alipay' || v === 'unionpay' || v === 'balance') return v
+  return 'alipay'
+})
+
+const autoPay = computed(() => {
+  const raw = route.query.autoPay
+  return raw === '1' || raw === 'true'
+})
+
 const polling = ref(false)
 const loading = ref(false)
 const lastTradeId = ref<string>('')
@@ -128,8 +140,8 @@ const startPayment = async () => {
   loading.value = true
   try {
     orderDraft.setProcessing()
-    tracker.track('payment_start', { orderId: orderId.value })
-    const res = await api.post(`/v1/payments/${encodeURIComponent(orderId.value)}/pay`, { channel: 'alipay' })
+    tracker.track('payment_start', { orderId: orderId.value, channel: channel.value })
+    const res = await api.post(`/v1/payments/${encodeURIComponent(orderId.value)}/pay`, { channel: channel.value })
     const data = res.data?.data || {}
     const tradeId = String(data.tradeId ?? '')
     lastTradeId.value = tradeId
@@ -160,6 +172,9 @@ onMounted(() => {
   syncOrder().catch(() => {})
   if (orderDraft.paymentStatus === 'PROCESSING') startPolling()
   refreshPaymentStatus().catch(() => {})
+  if (autoPay.value && orderDraft.paymentStatus === 'INIT') {
+    startPayment().catch(() => {})
+  }
 })
 
 onBeforeUnmount(() => {

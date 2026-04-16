@@ -1,28 +1,78 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 
-import UiButton from '../components/ui/UiButton.vue'
 import UiEmptyState from '../components/ui/UiEmptyState.vue'
-import UiPageHeader from '../components/ui/UiPageHeader.vue'
+import { useOrderDraftStore } from '../stores/orderDraft'
 import { useOrdersStore } from '../stores/orders'
+import { useToastStore } from '../stores/toast'
 
-type Tab = 'all' | 'Created' | 'Paid' | 'Cancelled'
+import macbookImgUrl from '../assets/figma/orders/product-macbook.png'
+import statusCancelIconUrl from '../assets/figma/orders/icon-status-cancel.svg'
+import statusPayIconUrl from '../assets/figma/orders/icon-status-pay.svg'
+import statusShipIconUrl from '../assets/figma/orders/icon-status-ship.svg'
 
 const router = useRouter()
 const ordersStore = useOrdersStore()
-
-const tab = ref<Tab>('all')
-
-const priceFmt = new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' })
+const orderDraft = useOrderDraftStore()
+const toast = useToastStore()
 
 const list = computed(() => {
-  if (tab.value === 'all') return ordersStore.orders
-  return ordersStore.orders.filter((o) => o.status === tab.value)
+  return ordersStore.orders
 })
 
-const goDetail = (id: string) => {
-  router.push({ name: 'orderDetail', params: { id } })
+const fmtDate = (iso: string) => {
+  const d = new Date(iso)
+  const y = d.getFullYear()
+  const m = d.getMonth() + 1
+  const day = d.getDate()
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mm = String(d.getMinutes()).padStart(2, '0')
+  const ss = String(d.getSeconds()).padStart(2, '0')
+  return `${y}/${m}/${day} ${hh}:${mm}:${ss}`
+}
+
+const statusText = (s: string) => {
+  if (s === 'Paid') return '待发货'
+  if (s === 'Shipped') return '已发货'
+  if (s === 'Completed') return '已完成'
+  if (s === 'Cancelled') return '已取消'
+  return '待支付'
+}
+
+const statusIcon = (s: string) => {
+  if (s === 'Paid') return statusShipIconUrl
+  if (s === 'Shipped') return statusShipIconUrl
+  if (s === 'Completed') return statusShipIconUrl
+  if (s === 'Cancelled') return statusCancelIconUrl
+  return statusPayIconUrl
+}
+
+const goDetail = (id: string) => router.push({ name: 'orderDetail', params: { id } })
+
+const goPay = (o: any) => {
+  orderDraft.createOrder({
+    orderId: o.id,
+    itemsAmount: o.amounts.items,
+    discount: o.amounts.discount,
+    shipping: o.amounts.shipping,
+  })
+  router.push({ name: 'payResult', query: { orderId: o.id, autoPay: '1' } })
+}
+
+const cancel = async (o: any) => {
+  if (o.status !== 'Created') {
+    toast.push({ type: 'info', message: '当前订单暂不支持取消' })
+    return
+  }
+  const ok = window.confirm('确认取消订单？')
+  if (!ok) return
+  try {
+    await ordersStore.cancelFromBackend(o.id)
+  } catch {
+    ordersStore.cancel(o.id)
+  }
+  toast.push({ type: 'info', message: '已取消订单' })
 }
 
 onMounted(() => {
@@ -32,43 +82,53 @@ onMounted(() => {
 
 <template>
   <div class="page">
-    <UiPageHeader title="我的订单" />
-
     <main class="main" aria-live="polite">
-      <section class="tabs" aria-label="订单筛选">
-        <UiButton size="sm" :variant="tab === 'all' ? 'primary' : 'ghost'" @click="tab = 'all'">全部</UiButton>
-        <UiButton size="sm" :variant="tab === 'Created' ? 'primary' : 'ghost'" @click="tab = 'Created'">
-          待支付
-        </UiButton>
-        <UiButton size="sm" :variant="tab === 'Paid' ? 'primary' : 'ghost'" @click="tab = 'Paid'">已支付</UiButton>
-        <UiButton
-          size="sm"
-          :variant="tab === 'Cancelled' ? 'primary' : 'ghost'"
-          @click="tab = 'Cancelled'"
-        >
-          已取消
-        </UiButton>
-      </section>
+      <h1 class="h1">我的订单</h1>
 
       <UiEmptyState v-if="list.length === 0" title="暂无订单" desc="去首页看看有什么好物" action-text="去首页" @action="router.push({ name: 'home' })" />
 
       <div v-else class="list" aria-label="订单列表">
-        <article v-for="o in list" :key="o.id" class="card" @click="goDetail(o.id)">
-          <div class="row">
-            <div class="id">订单号 {{ o.id }}</div>
-            <div class="badge" :class="o.status">{{ o.status === 'Created' ? '待支付' : o.status === 'Paid' ? '已支付' : '已取消' }}</div>
-          </div>
-          <div class="row">
-            <div class="meta">{{ new Date(o.createdAt).toLocaleString() }}</div>
-            <div class="price">{{ priceFmt.format(o.amounts.payable) }}</div>
-          </div>
-          <div class="items">
-            <div v-for="it in o.items.slice(0, 2)" :key="it.orderItemId" class="item">
-              <img class="cover" :src="it.cover" :alt="it.title" loading="lazy" decoding="async" />
-              <div class="name">{{ it.title }}</div>
-              <div class="qty">x{{ it.qty }}</div>
+        <article v-for="o in list" :key="o.id" class="card">
+          <div class="cardHead">
+            <div class="headLeft">
+              <div class="orderNo">订单号: {{ o.id }}</div>
+              <div class="time">{{ fmtDate(o.createdAt) }}</div>
             </div>
-            <div v-if="o.items.length > 2" class="more">+{{ o.items.length - 2 }}</div>
+            <div class="status">
+              <img class="statusIcon" :src="statusIcon(o.status)" alt="" aria-hidden="true" />
+              <div class="statusText">{{ statusText(o.status) }}</div>
+            </div>
+          </div>
+
+          <div class="cardBody">
+            <div v-for="it in o.items.slice(0, 1)" :key="it.orderItemId" class="prod">
+              <img class="prodImg" :src="it.cover || macbookImgUrl" :alt="it.title" loading="lazy" decoding="async" />
+              <div class="prodMid">
+                <div class="prodTitle">{{ it.title }}</div>
+                <div class="prodQty">x{{ it.qty }}</div>
+              </div>
+              <div class="prodRight">
+                <div class="prodPrice">¥{{ Math.round(it.price) }}</div>
+              </div>
+            </div>
+
+            <div class="cardFoot">
+              <div class="actions">
+                <button
+                  class="link"
+                  type="button"
+                  @click="o.status === 'Created' ? goPay(o) : goDetail(o.id)"
+                >
+                  {{ o.status === 'Created' ? '查看详情立即支付' : '查看详情' }}
+                </button>
+                <button class="linkGray" type="button" @click="cancel(o)">取消订单</button>
+              </div>
+
+              <div class="amounts">
+                <div class="amountLabel">实付款</div>
+                <div class="amountVal">¥{{ Math.round(o.amounts.payable) }}</div>
+              </div>
+            </div>
           </div>
         </article>
       </div>
@@ -78,132 +138,172 @@ onMounted(() => {
 
 <style scoped>
 .page {
-  min-height: 100%;
-  display: flex;
-  flex-direction: column;
+  min-height: 100svh;
+  background: #f9fafb;
 }
 
 .main {
-  padding: 14px 16px 28px;
+  padding: 24px 16px 64px;
+  width: min(864px, 100%);
+  margin: 0 auto;
   display: grid;
-  gap: 12px;
+  gap: 16px;
 }
 
-.tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+.h1 {
+  margin: 0;
+  font: 600 24px/32px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #0a0a0a;
 }
 
 .list {
   display: grid;
-  gap: 12px;
+  gap: 16px;
 }
 
 .card {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--bg);
-  padding: 12px;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0px 1px 2px -1px rgba(0, 0, 0, 0.1), 0px 1px 3px 0px rgba(0, 0, 0, 0.1);
   display: grid;
-  gap: 10px;
-  cursor: pointer;
-}
-
-.row {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: baseline;
-}
-
-.id {
-  color: var(--text-h);
-  font-weight: 900;
-  font-size: var(--font-sm);
-}
-
-.meta {
-  color: var(--text);
-  font-size: var(--font-xs);
-}
-
-.price {
-  color: var(--text-h);
-  font-weight: 900;
-}
-
-.badge {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  padding: 4px 10px;
-  font-size: var(--font-xs);
-  font-weight: 900;
-  color: var(--text-h);
-}
-
-.badge.Created {
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
-  background: var(--accent-bg);
-}
-
-.badge.Paid {
-  border-color: color-mix(in srgb, var(--success) 55%, var(--border));
-  background: var(--success-bg);
-}
-
-.badge.Cancelled {
-  border-color: color-mix(in srgb, var(--danger) 55%, var(--border));
-  background: var(--danger-bg);
-}
-
-.items {
-  display: grid;
-  gap: 8px;
-}
-
-.item {
-  display: grid;
-  grid-template-columns: 44px minmax(0, 1fr) auto;
-  gap: 10px;
-  align-items: center;
-}
-
-.cover {
-  width: 44px;
-  height: 44px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  object-fit: cover;
-  background: var(--code-bg);
-}
-
-.name {
-  color: var(--text-h);
-  font-size: var(--font-sm);
-  font-weight: 800;
-  line-height: 1.2;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
-.qty {
-  color: var(--text);
-  font-size: var(--font-xs);
+.cardHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 24px;
+  background: #faf5ff;
+  border-bottom: 1px solid #f3e8ff;
 }
 
-.more {
-  color: var(--text);
-  font-size: var(--font-xs);
+.headLeft {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
 }
 
-@media (min-width: 920px) {
-  .main {
-    max-width: 1120px;
-    margin: 0 auto;
-    width: 100%;
-  }
+.orderNo,
+.time {
+  font: 400 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #4a5565;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.statusIcon {
+  width: 20px;
+  height: 20px;
+}
+
+.statusText {
+  font: 500 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #0a0a0a;
+}
+
+.cardBody {
+  padding: 24px 24px 0;
+  display: grid;
+  gap: 16px;
+}
+
+.prod {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.prodImg {
+  width: 80px;
+  height: 80px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: #f3f4f6;
+}
+
+.prodMid {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.prodTitle {
+  font: 500 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #0a0a0a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.prodQty {
+  font: 400 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #4a5565;
+}
+
+.prodRight {
+  width: 56px;
+  text-align: right;
+}
+
+.prodPrice {
+  font: 500 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #0a0a0a;
+}
+
+.cardFoot {
+  padding: 16px 0 0;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.link,
+.linkGray {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  font: 400 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+
+.link {
+  color: #9810fa;
+}
+
+.linkGray {
+  font-weight: 500;
+  color: #4a5565;
+}
+
+.amounts {
+  display: grid;
+  gap: 4px;
+  text-align: right;
+}
+
+.amountLabel {
+  font: 400 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #4a5565;
+}
+
+.amountVal {
+  font: 400 24px/32px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #e7000b;
 }
 </style>

@@ -40,6 +40,35 @@ export const useCartStore = defineStore('cart', () => {
   const count = computed(() => snapshot.value.items.reduce((sum, it) => sum + it.qty, 0))
   const amount = computed(() => snapshot.value.items.reduce((sum, it) => sum + it.qty * it.price, 0))
 
+  const syncToServer = async () => {
+    const local = snapshot.value.items
+    if (local.length === 0) return
+
+    const res = await api.get('/v1/cart')
+    const list = Array.isArray(res.data?.data) ? res.data.data : []
+    const serverByProductId = new Map<number, { id: string; quantity: number }>()
+    for (const x of list) {
+      const pid = Number((x as any)?.productId)
+      const id = (x as any)?.id
+      const q = Number((x as any)?.quantity)
+      if (!Number.isFinite(pid) || id == null || !Number.isFinite(q)) continue
+      serverByProductId.set(pid, { id: String(id), quantity: q })
+    }
+
+    for (const it of local) {
+      const pid = Number(it.productId)
+      if (!Number.isFinite(pid)) continue
+      const found = serverByProductId.get(pid)
+      if (!found) {
+        await api.post('/v1/cart/items', { productId: pid, quantity: it.qty })
+        continue
+      }
+      if (found.quantity !== it.qty) {
+        await api.put(`/v1/cart/items/${encodeURIComponent(found.id)}`, { quantity: it.qty })
+      }
+    }
+  }
+
   const addItem = (input: Omit<CartItem, 'itemId'>) => {
     const existed = snapshot.value.items.find((it) => it.productId === input.productId && it.skuId === input.skuId)
     if (existed) {
@@ -109,5 +138,5 @@ export const useCartStore = defineStore('cart', () => {
     { deep: true },
   )
 
-  return { items, count, amount, addItem, updateQty, removeItem, clear }
+  return { items, count, amount, syncToServer, addItem, updateQty, removeItem, clear }
 })

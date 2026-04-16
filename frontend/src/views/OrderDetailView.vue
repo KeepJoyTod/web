@@ -2,9 +2,7 @@
 import { computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import UiButton from '../components/ui/UiButton.vue'
 import UiEmptyState from '../components/ui/UiEmptyState.vue'
-import UiPageHeader from '../components/ui/UiPageHeader.vue'
 import { useAftersalesStore } from '../stores/aftersales'
 import { useNotificationsStore } from '../stores/notifications'
 import { useOrderDraftStore } from '../stores/orderDraft'
@@ -12,6 +10,12 @@ import { useOrdersStore } from '../stores/orders'
 import { useTrackerStore } from '../stores/tracker'
 import { useToastStore } from '../stores/toast'
 import { api } from '../lib/api'
+
+import backIconUrl from '../assets/figma/order-detail/back.svg'
+import iconAddressUrl from '../assets/figma/order-detail/icon-address.svg'
+import iconFeeUrl from '../assets/figma/order-detail/icon-fee.svg'
+import iconProductUrl from '../assets/figma/order-detail/icon-product.svg'
+import productAirpodsImgUrl from '../assets/figma/order-detail/product-airpods.png'
 
 const router = useRouter()
 const route = useRoute()
@@ -24,7 +28,34 @@ const toast = useToastStore()
 
 const id = computed(() => String(route.params.id ?? ''))
 const order = computed(() => (id.value ? orders.getById(id.value) : null))
+
 const priceFmt = new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' })
+
+const statusTitle = computed(() => {
+  const s = order.value?.status
+  if (s === 'Paid') return '待发货'
+  if (s === 'Shipped') return '已发货'
+  if (s === 'Completed') return '已完成'
+  if (s === 'Cancelled') return '已取消'
+  return '待支付'
+})
+
+const stepIndex = computed(() => {
+  const s = order.value?.status
+  if (s === 'Paid') return 2
+  if (s === 'Shipped') return 3
+  if (s === 'Completed') return 4
+  if (s === 'Cancelled') return 1
+  return 1
+})
+
+const address = computed(() => {
+  const a = order.value?.address
+  if (a && a.receiver && a.phone && a.region && a.detail) return a
+  const d = orderDraft.draft.address
+  if (d && d.receiver && d.phone && d.region && d.detail) return d
+  return { receiver: '张三', phone: '13800000000', region: '北京市朝阳区', detail: '朝阳区xx路xx号' }
+})
 
 const cancel = () => {
   if (!order.value) return
@@ -64,7 +95,13 @@ const goPay = () => {
     discount: order.value.amounts.discount,
     shipping: order.value.amounts.shipping,
   })
-  router.push({ name: 'payResult', query: { orderId: order.value.id } })
+  router.push({ name: 'payResult', query: { orderId: order.value.id, autoPay: '1' } })
+}
+
+const viewShipping = () => {
+  if (!order.value) return
+  tracker.track('order_shipping_view', { orderId: order.value.id })
+  router.push({ name: 'orderLogistics', params: { id: order.value.id } })
 }
 
 onMounted(async () => {
@@ -78,89 +115,122 @@ onMounted(async () => {
 
 <template>
   <div class="page">
-    <UiPageHeader title="订单详情" />
-
     <main class="main" aria-live="polite">
       <UiEmptyState v-if="!order" title="订单不存在" desc="请返回订单列表" action-text="返回" @action="router.back()" />
 
-      <div v-else class="grid">
-        <section class="card" aria-label="订单信息">
-          <div class="row">
-            <div class="k">订单号</div>
-            <div class="v">{{ order.id }}</div>
+      <div v-else class="wrap">
+        <button class="back" type="button" @click="router.push({ name: 'orders' })">
+          <img class="backIcon" :src="backIconUrl" alt="" aria-hidden="true" />
+          <span>返回订单列表</span>
+        </button>
+
+        <nav class="crumbs" aria-label="面包屑">
+          <button class="crumbLink" type="button" @click="router.push({ name: 'home' })">首页</button>
+          <span class="crumbSep" aria-hidden="true">/</span>
+          <button class="crumbLink" type="button" @click="router.push({ name: 'orders' })">我的订单</button>
+          <span class="crumbSep" aria-hidden="true">/</span>
+          <span class="crumbCur">订单详情</span>
+        </nav>
+
+        <section class="panel statusPanel" aria-label="订单状态">
+          <div class="statusLeft">
+            <div class="statusH1">{{ statusTitle }}</div>
+            <div class="statusNo">订单号: {{ order.id }}</div>
           </div>
-          <div class="row">
-            <div class="k">状态</div>
-            <div class="v strong">
-              {{ order.status === 'Created' ? '待支付' : order.status === 'Paid' ? '已支付' : '已取消' }}
+          <button class="shipBtn" type="button" @click="viewShipping">查看物流</button>
+        </section>
+
+        <section class="panel stepPanel" aria-label="订单进度">
+          <div class="stepWrap">
+            <div class="stepLine" aria-hidden="true"></div>
+            <div v-for="n in 4" :key="n" class="step">
+              <div class="stepCircle" :class="{ on: n <= stepIndex }">
+                <span class="stepNum" :class="{ on: n <= stepIndex }">{{ n }}</span>
+              </div>
+              <div class="stepText">
+                {{ n === 1 ? '待支付' : n === 2 ? '待发货' : n === 3 ? '已发货' : '已完成' }}
+              </div>
             </div>
           </div>
-          <div class="row">
-            <div class="k">创建时间</div>
-            <div class="v">{{ new Date(order.createdAt).toLocaleString() }}</div>
-          </div>
-          <div class="row" v-if="order.paidAt">
-            <div class="k">支付时间</div>
-            <div class="v">{{ new Date(order.paidAt).toLocaleString() }}</div>
-          </div>
         </section>
 
-        <section class="card" aria-label="收货信息">
-          <div class="cardTitle">收货信息</div>
-          <div class="addr">
-            <div class="line">
-              <span class="name">{{ order.address.receiver }}</span>
-              <span class="phone">{{ order.address.phone }}</span>
+        <section class="panel infoPanel" aria-label="收货信息">
+          <div class="panelHead">
+            <img class="panelIcon" :src="iconAddressUrl" alt="" aria-hidden="true" />
+            <div class="panelTitle">收货信息</div>
+          </div>
+          <div class="kvList">
+            <div class="kvRow">
+              <div class="kvK">收货人:</div>
+              <div class="kvV">{{ address.receiver }}</div>
             </div>
-            <div class="line2">{{ order.address.region }} {{ order.address.detail }}</div>
+            <div class="kvRow">
+              <div class="kvK">联系电话:</div>
+              <div class="kvV">{{ address.phone }}</div>
+            </div>
+            <div class="kvRow">
+              <div class="kvK">收货地址:</div>
+              <div class="kvV">{{ address.region }} {{ address.detail }}</div>
+            </div>
           </div>
         </section>
 
-        <section class="card" aria-label="商品列表">
-          <div class="cardTitle">商品</div>
-          <div class="items">
-            <article v-for="it in order.items" :key="it.orderItemId" class="item">
-              <img class="cover" :src="it.cover" :alt="it.title" loading="lazy" decoding="async" />
-              <div class="meta">
-                <div class="titleText">{{ it.title }}</div>
-                <div class="sub">SKU：{{ it.skuId }} · x{{ it.qty }}</div>
-                <div class="price">{{ priceFmt.format(it.price * it.qty) }}</div>
+        <section class="panel prodPanel" aria-label="商品信息">
+          <div class="panelHead">
+            <img class="panelIcon" :src="iconProductUrl" alt="" aria-hidden="true" />
+            <div class="panelTitle">商品信息</div>
+          </div>
+          <div class="prodList">
+            <div v-for="it in order.items" :key="it.orderItemId" class="prodRow">
+              <img class="prodImg" :src="it.cover || productAirpodsImgUrl" :alt="it.title" loading="lazy" decoding="async" />
+              <div class="prodMid">
+                <div class="prodTitle">{{ it.title }}</div>
+                <div class="prodQty">数量: x{{ it.qty }}</div>
               </div>
-              <div class="ops">
-                <UiButton size="sm" type="button" @click="goReview(it.productId)">评价</UiButton>
-                <UiButton size="sm" type="button" :disabled="hasAftersale(it.orderItemId)" @click="goAftersale(it.orderItemId)">
-                  {{ hasAftersale(it.orderItemId) ? '已申请' : '售后' }}
-                </UiButton>
+              <div class="prodRight">
+                <div class="prodPrice">¥{{ Math.round(it.price) }}</div>
               </div>
-            </article>
+            </div>
           </div>
         </section>
 
-        <section class="card" aria-label="金额明细">
-          <div class="cardTitle">金额</div>
-          <div class="row">
-            <div class="k">商品金额</div>
-            <div class="v">{{ priceFmt.format(order.amounts.items) }}</div>
+        <section class="panel feePanel" aria-label="费用明细">
+          <div class="panelHead">
+            <img class="panelIcon" :src="iconFeeUrl" alt="" aria-hidden="true" />
+            <div class="panelTitle">费用明细</div>
           </div>
-          <div class="row">
-            <div class="k">优惠</div>
-            <div class="v">-{{ priceFmt.format(order.amounts.discount) }}</div>
-          </div>
-          <div class="row">
-            <div class="k">运费</div>
-            <div class="v">{{ priceFmt.format(order.amounts.shipping) }}</div>
-          </div>
-          <div class="row">
-            <div class="k strong">应付</div>
-            <div class="v strong">{{ priceFmt.format(order.amounts.payable) }}</div>
+          <div class="feeList">
+            <div class="feeRow">
+              <div class="feeK">商品金额</div>
+              <div class="feeV">{{ priceFmt.format(order.amounts.items) }}</div>
+            </div>
+            <div class="feeRow">
+              <div class="feeK">运费</div>
+              <div class="feeV">{{ order.amounts.shipping > 0 ? priceFmt.format(order.amounts.shipping) : '免运费' }}</div>
+            </div>
+            <div class="feeTotal">
+              <div class="feeTotalK">实付款</div>
+              <div class="feeTotalV">{{ priceFmt.format(order.amounts.payable) }}</div>
+            </div>
           </div>
         </section>
 
-        <section v-if="order.status === 'Created'" class="actions" aria-label="订单操作">
-          <UiButton variant="primary" type="button" @click="goPay">
-            去支付
-          </UiButton>
-          <UiButton variant="danger" type="button" @click="cancel">取消订单</UiButton>
+        <section v-if="order.status === 'Created'" class="bottomActions" aria-label="订单操作">
+          <button class="primaryBtn" type="button" @click="goPay">去支付</button>
+          <button class="ghostBtn" type="button" @click="cancel">取消订单</button>
+        </section>
+
+        <section v-if="order.status !== 'Created'" class="bottomActions" aria-label="售后与评价">
+          <button v-if="order.items[0]" class="ghostBtn" type="button" @click="goReview(order.items[0].productId)">评价</button>
+          <button
+            v-if="order.items[0]"
+            class="ghostBtn"
+            type="button"
+            :disabled="hasAftersale(order.items[0].orderItemId)"
+            @click="goAftersale(order.items[0].orderItemId)"
+          >
+            {{ hasAftersale(order.items[0].orderItemId) ? '已申请售后' : '申请售后' }}
+          </button>
         </section>
       </div>
     </main>
@@ -169,155 +239,322 @@ onMounted(async () => {
 
 <style scoped>
 .page {
-  min-height: 100%;
-  display: flex;
-  flex-direction: column;
+  min-height: 100svh;
+  background: #f9fafb;
 }
 
 .main {
-  padding: 14px 16px 28px;
+  padding: 24px 16px 64px;
 }
 
-.grid {
+.wrap {
+  width: min(992px, 100%);
+  margin: 0 auto;
   display: grid;
-  gap: 12px;
+  gap: 16px;
 }
 
-.card {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--bg);
-  padding: 14px;
-  display: grid;
-  gap: 10px;
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  font: 500 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #4a5565;
 }
 
-.cardTitle {
-  color: var(--text-h);
-  font-weight: 900;
+.backIcon {
+  width: 20px;
+  height: 20px;
 }
 
-.row {
+.crumbs {
   display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: baseline;
+  align-items: center;
+  gap: 8px;
+  height: 20px;
+  font: 400 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #4a5565;
 }
 
-.k {
-  color: var(--text);
-  font-size: var(--font-sm);
+.crumbLink {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  color: #4a5565;
+  font: inherit;
 }
 
-.v {
-  color: var(--text-h);
-  font-size: var(--font-sm);
-  text-align: right;
+.crumbSep {
+  color: #4a5565;
 }
 
-.strong {
-  font-weight: 900;
-  color: var(--text-h);
+.crumbCur {
+  color: #4a5565;
 }
 
-.addr {
+.panel {
+  border-radius: 16px;
+  background: #ffffff;
+  padding: 24px 24px 0;
   display: grid;
-  gap: 6px;
+  gap: 16px;
 }
 
-.line {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
+.panelHead {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.name {
-  font-weight: 900;
-  color: var(--text-h);
+.panelIcon {
+  width: 20px;
+  height: 20px;
 }
 
-.phone {
-  color: var(--text);
-  font-size: var(--font-sm);
+.panelTitle {
+  font: 500 20px/28px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #0a0a0a;
 }
 
-.line2 {
-  color: var(--text);
-  font-size: var(--font-sm);
+.statusPanel {
+  height: 112px;
 }
 
-.items {
-  display: grid;
-  gap: 10px;
-}
-
-.item {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--code-bg) 55%, transparent);
-  padding: 10px;
-  display: grid;
-  grid-template-columns: 58px minmax(0, 1fr) auto;
-  gap: 10px;
+.statusPanel {
+  grid-template-columns: 1fr auto;
   align-items: center;
 }
 
-.cover {
-  width: 58px;
-  height: 58px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  object-fit: cover;
-  background: var(--code-bg);
-}
-
-.meta {
-  display: grid;
-  gap: 4px;
-}
-
-.titleText {
-  color: var(--text-h);
-  font-weight: 900;
-  font-size: var(--font-sm);
-  line-height: 1.2;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.sub {
-  color: var(--text);
-  font-size: var(--font-xs);
-}
-
-.price {
-  color: var(--text-h);
-  font-weight: 900;
-}
-
-.ops {
+.statusLeft {
   display: grid;
   gap: 8px;
 }
 
-.actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
+.statusH1 {
+  font: 500 24px/32px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #0a0a0a;
 }
 
-@media (min-width: 920px) {
-  .main {
-    max-width: 1120px;
-    margin: 0 auto;
-    width: 100%;
-  }
+.statusNo {
+  font: 400 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #4a5565;
+}
 
-  .ops {
-    display: flex;
-    gap: 10px;
-  }
+.shipBtn {
+  width: 112px;
+  height: 40px;
+  border-radius: 10px;
+  border: 0;
+  cursor: pointer;
+  background: #9810fa;
+  color: #ffffff;
+  font: 400 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+
+.stepPanel {
+  height: 116px;
+}
+
+.stepWrap {
+  position: relative;
+  height: 68px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  align-items: start;
+}
+
+.stepLine {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 20px;
+  height: 2px;
+  background: #e5e7eb;
+}
+
+.step {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+}
+
+.stepCircle {
+  width: 40px;
+  height: 40px;
+  border-radius: 9999px;
+  background: #e5e7eb;
+  display: grid;
+  place-items: center;
+  z-index: 1;
+}
+
+.stepCircle.on {
+  background: #9810fa;
+}
+
+.stepNum {
+  font: 400 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #99a1af;
+}
+
+.stepNum.on {
+  color: #ffffff;
+}
+
+.stepText {
+  font: 400 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #0a0a0a;
+  text-align: center;
+}
+
+.kvList {
+  display: grid;
+  gap: 8px;
+  padding-bottom: 24px;
+}
+
+.kvRow {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.kvK {
+  width: 80px;
+  font: 400 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #4a5565;
+}
+
+.kvV {
+  font: 400 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #0a0a0a;
+}
+
+.prodList {
+  padding-bottom: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.prodRow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.prodImg {
+  width: 80px;
+  height: 80px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: #f3f4f6;
+}
+
+.prodMid {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.prodTitle {
+  font: 500 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #0a0a0a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.prodQty {
+  font: 400 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #4a5565;
+}
+
+.prodRight {
+  width: 56px;
+  text-align: right;
+}
+
+.prodPrice {
+  font: 500 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #0a0a0a;
+}
+
+.feeList {
+  display: grid;
+  gap: 12px;
+  padding-bottom: 24px;
+}
+
+.feeRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font: 400 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+
+.feeK {
+  color: #4a5565;
+}
+
+.feeV {
+  color: #0a0a0a;
+}
+
+.feeTotal {
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  padding-top: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.feeTotalK {
+  font: 400 20px/28px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #0a0a0a;
+}
+
+.feeTotalV {
+  font: 400 30px/36px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #e7000b;
+}
+
+.bottomActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.primaryBtn,
+.ghostBtn {
+  height: 56px;
+  border-radius: 14px;
+  font: 500 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  cursor: pointer;
+}
+
+.primaryBtn {
+  border: 0;
+  background: #9810fa;
+  color: #ffffff;
+}
+
+.ghostBtn {
+  border: 1px solid #d1d5dc;
+  background: #ffffff;
+  color: #364153;
+}
+
+.ghostBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 </style>
