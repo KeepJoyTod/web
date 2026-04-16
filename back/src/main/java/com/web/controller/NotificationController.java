@@ -3,6 +3,7 @@ package com.web.controller;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.map.MapUtil;
 import com.web.interceptor.AuthInterceptor;
+import com.web.dto.NotificationRequests;
 import com.web.pojo.Notification;
 import com.web.service.NotificationService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,12 +36,12 @@ public class NotificationController {
     }
 
     @PostMapping
-    public ResponseEntity<Map<String, Object>> create(@RequestBody Map<String, Object> params) {
+    public ResponseEntity<Map<String, Object>> create(@RequestBody NotificationRequests.CreateRequest req) {
         Long userId = AuthInterceptor.getCurrentUserId();
-        String type = params.getOrDefault("type", "system").toString();
-        String title = params.getOrDefault("title", "").toString();
-        String content = params.getOrDefault("content", "").toString();
-        String relatedId = params.getOrDefault("relatedId", "").toString();
+        String type = req.getType() == null ? "system" : req.getType();
+        String title = req.getTitle() == null ? "" : req.getTitle();
+        String content = req.getContent() == null ? "" : req.getContent();
+        String relatedId = req.getRelatedId() == null ? "" : req.getRelatedId();
         Notification n = notificationService.create(userId, type, title, content, relatedId);
         var meta = MapUtil.builder(new java.util.HashMap<String, Object>())
                 .put("requestId", UUID.randomUUID().toString())
