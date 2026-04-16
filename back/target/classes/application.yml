@@ -14,10 +14,14 @@ spring:
 
 mybatis:
   mapper-locations: classpath:mapper/*.xml
-  type-aliases-package: com..web.pojo
+  type-aliases-package: com.web.pojo
   configuration:
     map-underscore-to-camel-case: true
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
-    springdoc:
-      # 自定义 OpenAPI 文档的访问路径，默认为 /v3/api-docs
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui-custom.html
 

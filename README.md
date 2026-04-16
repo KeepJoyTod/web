@@ -9,42 +9,14 @@
 
 前置：
 
-- 已安装并启动 MySQL
-- 已安装 JDK 17、Maven、Node.js
-- 已安装 MySQL 客户端（命令行 `mysql` 可用）
+- 已安装 Docker Desktop（推荐，用于一键启动 MySQL）
+- 已安装 JDK 17、Maven、Node.js（脚本可自动检查并尝试安装）
 
 在项目根目录依次执行：
 
 ```powershell
-# 1) 初始化数据库（默认连接信息：root / 123456，数据库：web）
-mysql -uroot -p123456 -e "CREATE DATABASE IF NOT EXISTS web DEFAULT CHARSET utf8mb4;"
-
-$sqls = @(
-  "back/sql/schema_v1.sql",
-  "back/sql/schema_v2_address.sql",
-  "back/sql/schema_v3_payment.sql",
-  "back/sql/schema_v4_marketing_aftersales.sql",
-  "back/sql/schema_v5_products_tags.sql",
-  "back/sql/seed_demo.sql",
-  "back/sql/seed_products_categories_1_8.sql"
-)
-
-foreach ($f in $sqls) {
-  Write-Host "Importing $f ..."
-  Get-Content $f -Raw | mysql -uroot -p123456 web
-}
-
-# 2) 启动后端（新开一个终端执行）
-cd back
-mvn spring-boot:run
-```
-
-后端启动成功后，再新开一个终端在项目根目录执行：
-
-```powershell
-cd frontend
-npm install
-npm run dev
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\scripts\deploy.ps1 -Mode dev -InitDb
 ```
 
 访问：
