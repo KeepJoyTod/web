@@ -2,6 +2,7 @@ package com.web.controller;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.map.MapUtil;
+import com.web.dto.ProductRequests;
 import com.web.pojo.Product;
 import com.web.service.ProductService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -81,7 +82,16 @@ public class ProductController {
      * 创建商品 (仅示例，通常在 /v1/merchant/products)
      */
     @PostMapping
-    public ResponseEntity<Map<String, Object>> createProduct(@RequestBody Product product) {
+    public ResponseEntity<Map<String, Object>> createProduct(@RequestBody ProductRequests.CreateRequest req) {
+        Product product = new Product();
+        product.setCategoryId(req.getCategoryId());
+        product.setName(req.getName());
+        product.setDescription(req.getDescription());
+        product.setTags(req.getTags());
+        product.setPrice(req.getPrice());
+        product.setStock(req.getStock());
+        product.setStatus(req.getStatus());
+
         boolean success = productService.createProduct(product);
         
         Map<String, Object> result = MapUtil.builder(new java.util.HashMap<String, Object>())

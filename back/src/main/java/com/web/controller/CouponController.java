@@ -3,6 +3,7 @@ package com.web.controller;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.map.MapUtil;
 import com.web.interceptor.AuthInterceptor;
+import com.web.dto.CouponRequests;
 import com.web.pojo.Coupon;
 import com.web.service.CouponService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,10 +52,10 @@ public class CouponController {
     @PostMapping("/{code}/check")
     public ResponseEntity<Map<String, Object>> checkCoupon(
             @PathVariable String code,
-            @RequestBody Map<String, Object> params) {
+            @RequestBody CouponRequests.CheckRequest req) {
             
         Long userId = AuthInterceptor.getCurrentUserId();
-        BigDecimal amount = new BigDecimal(params.getOrDefault("amount", "0").toString());
+        BigDecimal amount = req.getAmount() == null ? BigDecimal.ZERO : req.getAmount();
         
         Map<String, Object> result = couponService.checkCoupon(userId, code, amount);
         

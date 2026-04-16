@@ -4,6 +4,7 @@ import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.map.MapUtil;
 import com.web.interceptor.AuthInterceptor;
 import com.web.pojo.CartItem;
+import com.web.dto.CartRequests;
 import com.web.service.CartService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -48,10 +49,10 @@ public class CartController {
      * POST /v1/cart/items
      */
     @PostMapping("/items")
-    public ResponseEntity<Map<String, Object>> addCartItem(@RequestBody Map<String, Object> params) {
+    public ResponseEntity<Map<String, Object>> addCartItem(@RequestBody CartRequests.AddItemRequest req) {
         Long userId = AuthInterceptor.getCurrentUserId();
-        Long productId = Long.valueOf(params.get("productId").toString());
-        Integer quantity = Integer.valueOf(params.getOrDefault("quantity", "1").toString());
+        Long productId = req.getProductId();
+        Integer quantity = req.getQuantity() == null ? 1 : req.getQuantity();
         
         boolean success = cartService.addCartItem(userId, productId, quantity);
         
@@ -68,10 +69,10 @@ public class CartController {
     @PutMapping("/items/{id}")
     public ResponseEntity<Map<String, Object>> updateCartItem(
             @PathVariable Long id, 
-            @RequestBody Map<String, Object> params) {
+            @RequestBody CartRequests.UpdateItemRequest req) {
             
         Long userId = AuthInterceptor.getCurrentUserId();
-        Integer quantity = Integer.valueOf(params.get("quantity").toString());
+        Integer quantity = req.getQuantity();
         boolean success = cartService.updateCartItemQuantity(userId, id, quantity);
         
         return ResponseEntity.ok(MapUtil.builder(new java.util.HashMap<String, Object>())
