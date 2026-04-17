@@ -14,10 +14,11 @@ spring:
 
 mybatis:
   mapper-locations: classpath:mapper/*.xml
-  type-aliases-package: com.web.pojo
+  type-aliases-package: com..web.pojo
   configuration:
     map-underscore-to-camel-case: true
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
 springdoc:
   api-docs:
     path: /v3/api-docs
