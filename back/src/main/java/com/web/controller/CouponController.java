@@ -6,6 +6,8 @@ import com.web.interceptor.AuthInterceptor;
 import com.web.dto.CouponRequests;
 import com.web.pojo.Coupon;
 import com.web.service.CouponService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -18,6 +20,7 @@ import java.util.stream.Collectors;
 /**
  * 营销与优惠券接口
  */
+@Tag(name = "营销管理", description = "优惠券查询与校验")
 @RestController
 @RequestMapping("/v1/coupons")
 public class CouponController {
@@ -25,10 +28,7 @@ public class CouponController {
     @Autowired
     private CouponService couponService;
 
-    /**
-     * 获取可用优惠券列表
-     * GET /v1/coupons/available
-     */
+    @Operation(summary = "获取可用优惠券", description = "获取当前用户可使用的优惠券列表")
     @GetMapping("/available")
     public ResponseEntity<Map<String, Object>> getAvailableCoupons() {
         Long userId = AuthInterceptor.getCurrentUserId();
@@ -45,10 +45,7 @@ public class CouponController {
                 .build());
     }
 
-    /**
-     * 校验优惠券是否可用
-     * POST /v1/coupons/{code}/check
-     */
+    @Operation(summary = "校验优惠券", description = "根据优惠券码和订单金额校验是否可用")
     @PostMapping("/{code}/check")
     public ResponseEntity<Map<String, Object>> checkCoupon(
             @PathVariable String code,

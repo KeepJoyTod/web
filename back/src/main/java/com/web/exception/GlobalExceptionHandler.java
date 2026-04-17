@@ -4,6 +4,7 @@ import cn.hutool.core.map.MapUtil;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.Map;
 import java.util.UUID;
@@ -32,6 +33,25 @@ public class GlobalExceptionHandler {
                 .build();
 
         return ResponseEntity.status(400).body(result);
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleNoResourceFoundException(NoResourceFoundException e) {
+        Map<String, Object> error = MapUtil.builder(new java.util.HashMap<String, Object>())
+                .put("code", "NOT_FOUND")
+                .put("message", "接口不存在: " + e.getResourcePath())
+                .build();
+                
+        Map<String, Object> meta = MapUtil.builder(new java.util.HashMap<String, Object>())
+                .put("requestId", UUID.randomUUID().toString())
+                .build();
+                
+        Map<String, Object> result = MapUtil.builder(new java.util.HashMap<String, Object>())
+                .put("error", error)
+                .put("meta", meta)
+                .build();
+
+        return ResponseEntity.status(404).body(result);
     }
 
     @ExceptionHandler(Exception.class)

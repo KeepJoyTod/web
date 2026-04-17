@@ -7,6 +7,8 @@ import cn.hutool.jwt.signers.JWTSignerUtil;
 import com.web.pojo.User;
 import com.web.dto.AuthRequests;
 import com.web.service.UserService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -17,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.Map;
 import java.util.UUID;
 
+@Tag(name = "身份认证", description = "登录、注册及 Token 管理")
 @RestController
 @RequestMapping("/v1/auth")
 public class AuthController {
@@ -27,6 +30,7 @@ public class AuthController {
     // JWT 签名密钥
     private static final byte[] JWT_KEY = "projectku_secret_key".getBytes();
 
+    @Operation(summary = "用户登录", description = "使用账号密码登录，返回 JWT Token")
     @PostMapping("/login")
     public ResponseEntity<Map<String, Object>> login(@RequestBody AuthRequests.LoginRequest req) {
         String account = req.getAccount();
@@ -61,6 +65,7 @@ public class AuthController {
                 .build());
     }
     
+    @Operation(summary = "用户注册", description = "注册新账号")
     @PostMapping("/register")
     public ResponseEntity<Map<String, Object>> register(@RequestBody AuthRequests.RegisterRequest req) {
         String account = req.getAccount();

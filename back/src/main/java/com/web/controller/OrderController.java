@@ -7,6 +7,8 @@ import com.web.dto.OrderRequests;
 import com.web.pojo.Order;
 import com.web.pojo.OrderItem;
 import com.web.service.OrderService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,9 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/**
- * 订单接口 (RESTful API)
- */
+@Tag(name = "订单管理", description = "订单查询、下单及状态流转")
 @RestController
 @RequestMapping("/v1/orders")
 public class OrderController {
@@ -25,10 +25,7 @@ public class OrderController {
     @Autowired
     private OrderService orderService;
 
-    /**
-     * 下单 (结算购物车选中的商品)
-     * POST /v1/orders/checkout
-     */
+    @Operation(summary = "提交订单", description = "根据购物车项创建新订单")
     @PostMapping("/checkout")
     public ResponseEntity<Map<String, Object>> checkout(@RequestBody OrderRequests.CheckoutRequest req) {
         Long userId = AuthInterceptor.getCurrentUserId();
@@ -63,35 +60,23 @@ public class OrderController {
         }
     }
 
-    /**
-     * 获取订单列表
-     * GET /v1/orders
-     */
+    @Operation(summary = "获取用户订单列表", description = "获取当前登录用户的所有订单")
     @GetMapping
-    public ResponseEntity<Map<String, Object>> getOrders(
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "10") int size) {
-            
-        Long userId = AuthInterceptor.getCurrentUserId();
-        List<Order> list = orderService.getOrderList(userId, page, size);
+    public ResponseEntity<Map<String, Object>> getMyOrders(@RequestAttribute("userId") Long userId) {
+        List<Order> orders = orderService.getOrderList(userId, 1, 100);
         
-        List<Map<String, Object>> mapList = list.stream()
-                .map(order -> BeanUtil.beanToMap(order, false, true))
+        List<Map<String, Object>> data = orders.stream()
+                .map(o -> BeanUtil.beanToMap(o, false, true))
                 .collect(Collectors.toList());
                 
         return ResponseEntity.ok(MapUtil.builder(new java.util.HashMap<String, Object>())
-                .put("code", 200)
-                .put("message", "success")
-                .put("data", mapList)
+                .put("data", data)
                 .build());
     }
 
-    /**
-     * 获取订单详情
-     * GET /v1/orders/{id}
-     */
+    @Operation(summary = "获取订单详情", description = "根据订单ID获取订单及其商品详情")
     @GetMapping("/{id}")
-    public ResponseEntity<Map<String, Object>> getOrderById(@PathVariable Long id) {
+    public ResponseEntity<Map<String, Object>> getOrderDetail(@PathVariable Long id) {
         Long userId = AuthInterceptor.getCurrentUserId();
         Order order = orderService.getOrderById(id);
         if (order == null || !order.getUserId().equals(userId)) {

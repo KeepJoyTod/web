@@ -93,7 +93,9 @@ mvn spring-boot:run
 
 后端默认地址：
 
-- `http://localhost:8080/api`
+- `http://localhost:8080/api` (服务状态)
+- `http://localhost:8080/api/swagger-ui.html` (Swagger UI)
+- `http://localhost:8080/api/v1/products` (示例接口)
 
 ### Swagger / OpenAPI 文档
 
@@ -169,3 +171,4 @@ mvn -Dmaven.repo.local="$env:USERPROFILE\.m2\repository" -DskipTests spring-boot
 ```
 
 - 或检查你本机 `~/.m2/settings.xml` 中的 `localRepository` 配置，修改为可写目录后重试。
+

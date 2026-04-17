@@ -467,19 +467,21 @@ onMounted(() => {
 .track {
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: 85%;
-  gap: 10px;
+  grid-auto-columns: 100%;
+  gap: 0;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
-  padding: 10px;
+  padding: 0;
+  height: 400px;
 }
 
 .img {
   width: 100%;
-  height: 220px;
-  object-fit: contain;
-  object-position: center center;
-  border-radius: 12px;
+  height: 100%;
+  display: block;
+  object-fit: fill;
+  object-position: center;
+  border-radius: 0;
   scroll-snap-align: start;
   background: var(--code-bg);
 }
@@ -784,7 +786,7 @@ onMounted(() => {
     margin: 0 auto;
   }
 
-  .img { height: 320px; }
+  .img { height: 100%; }
 
   .action {
     max-width: 1120px;
