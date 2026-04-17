@@ -1,0 +1,29 @@
+VALID_JSON: True
+OPENAPI_VERSION: 3.0.1
+PATH_COUNT: 26
+SCHEMA_COUNT: 14
+CONTROLLER_ENDPOINT_COUNT: 33
+MISSING_IN_SPEC: 0
+EXTRA_IN_SPEC: 0
+REQUEST_SCHEMA_ISSUES: 0
+RESPONSE_WRAPPER_WARNINGS: 33
+  - PUT /v1/me/addresses/{id} -> 200
+  - DELETE /v1/me/addresses/{id} -> 200
+  - PUT /v1/cart/items/{id} -> 200
+  - DELETE /v1/cart/items/{id} -> 200
+  - GET /v1/reviews -> 200
+  - POST /v1/reviews -> 200
+  - GET /v1/products -> 200
+  - POST /v1/products -> 200
+  - POST /v1/payments/{orderId}/pay -> 200
+  - POST /v1/payments/webhook -> 200
+  - POST /v1/orders/{id}/cancel -> 200
+  - POST /v1/orders/checkout -> 200
+  - GET /v1/notifications -> 200
+  - POST /v1/notifications -> 200
+  - DELETE /v1/notifications -> 200
+  - POST /v1/notifications/{id}/read -> 200
+  - POST /v1/notifications/markAllRead -> 200
+  - GET /v1/me/addresses -> 200
+  - POST /v1/me/addresses -> 200
+  - POST /v1/coupons/{code}/check -> 200

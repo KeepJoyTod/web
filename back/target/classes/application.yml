@@ -18,10 +18,19 @@ mybatis:
   configuration:
     map-underscore-to-camel-case: true
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+<<<<<<< HEAD
 
 springdoc:
   api-docs:
     path: /api-docs
   swagger-ui:
     path: /swagger-ui-custom.html
+=======
+>>>>>>> 864782d62ab366f7b8d047d28d2dbbc07c064564
 
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+  writer-with-default-pretty-printer: true

@@ -5,6 +5,7 @@ import cn.hutool.core.map.MapUtil;
 import cn.hutool.jwt.JWT;
 import cn.hutool.jwt.signers.JWTSignerUtil;
 import com.web.pojo.User;
+import com.web.dto.AuthRequests;
 import com.web.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -27,9 +28,9 @@ public class AuthController {
     private static final byte[] JWT_KEY = "projectku_secret_key".getBytes();
 
     @PostMapping("/login")
-    public ResponseEntity<Map<String, Object>> login(@RequestBody Map<String, Object> params) {
-        String account = (String) params.get("account");
-        String password = (String) params.get("password");
+    public ResponseEntity<Map<String, Object>> login(@RequestBody AuthRequests.LoginRequest req) {
+        String account = req.getAccount();
+        String password = req.getPassword();
         
         User user = userService.login(account, password);
         
@@ -61,10 +62,12 @@ public class AuthController {
     }
     
     @PostMapping("/register")
-    public ResponseEntity<Map<String, Object>> register(@RequestBody Map<String, Object> params) {
-        String account = (String) params.get("account");
-        String password = (String) params.get("password");
-        String nickname = (String) params.getOrDefault("nickname", "User_" + System.currentTimeMillis());
+    public ResponseEntity<Map<String, Object>> register(@RequestBody AuthRequests.RegisterRequest req) {
+        String account = req.getAccount();
+        String password = req.getPassword();
+        String nickname = req.getNickname() == null || req.getNickname().isBlank()
+                ? "User_" + System.currentTimeMillis()
+                : req.getNickname();
         
         User user = userService.register(account, password, nickname);
         

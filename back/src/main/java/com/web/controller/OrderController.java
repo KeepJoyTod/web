@@ -3,6 +3,7 @@ package com.web.controller;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.map.MapUtil;
 import com.web.interceptor.AuthInterceptor;
+import com.web.dto.OrderRequests;
 import com.web.pojo.Order;
 import com.web.pojo.OrderItem;
 import com.web.service.OrderService;
@@ -29,10 +30,10 @@ public class OrderController {
      * POST /v1/orders/checkout
      */
     @PostMapping("/checkout")
-    public ResponseEntity<Map<String, Object>> checkout(@RequestBody Map<String, Object> params) {
+    public ResponseEntity<Map<String, Object>> checkout(@RequestBody OrderRequests.CheckoutRequest req) {
         Long userId = AuthInterceptor.getCurrentUserId();
-        Long addressId = Long.valueOf(params.getOrDefault("addressId", "0").toString());
-        String couponCode = params.getOrDefault("couponCode", "").toString();
+        Long addressId = req.getAddressId() == null ? 0L : req.getAddressId();
+        String couponCode = req.getCouponCode() == null ? "" : req.getCouponCode();
         
         try {
             Map<String, Object> checkoutResult = orderService.checkout(userId, addressId, couponCode);
