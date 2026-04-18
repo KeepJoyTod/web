@@ -105,17 +105,21 @@ export const useOrderDraftStore = defineStore('orderDraft', () => {
     }
   }
 
-  const createOrder = (input: { itemsAmount: number; discount: number; shipping: number }) => {
+  const createOrder = (input: { orderId?: string; itemsAmount: number; discount: number; shipping: number }) => {
     const payable = Math.max(0, input.itemsAmount - input.discount + input.shipping)
-    draft.value.orderId = oid()
+    draft.value.orderId = input.orderId || oid()
     draft.value.amounts = {
       items: input.itemsAmount,
       discount: input.discount,
       shipping: input.shipping,
       payable,
     }
-    draft.value.payment = { status: 'PROCESSING', paidAt: null, failureReason: null }
+    draft.value.payment = { status: 'INIT', paidAt: null, failureReason: null }
     return draft.value.orderId
+  }
+
+  const setInit = () => {
+    draft.value.payment = { status: 'INIT', paidAt: null, failureReason: null }
   }
 
   const markPaid = (paidAtIso: string) => {
@@ -147,10 +151,10 @@ export const useOrderDraftStore = defineStore('orderDraft', () => {
     setInvoiceTitle,
     setUsePoints,
     createOrder,
+    setInit,
     markPaid,
     markFailed,
     setProcessing,
     reset,
   }
 })
-

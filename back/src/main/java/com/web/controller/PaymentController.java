@@ -3,7 +3,10 @@ package com.web.controller;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.map.MapUtil;
 import com.web.interceptor.AuthInterceptor;
+<<<<<<< HEAD
+=======
 import com.web.dto.PaymentRequests;
+>>>>>>> origin/main
 import com.web.pojo.Payment;
 import com.web.service.PaymentService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,10 +33,17 @@ public class PaymentController {
     @PostMapping("/{orderId}/pay")
     public ResponseEntity<Map<String, Object>> initiatePayment(
             @PathVariable Long orderId,
+<<<<<<< HEAD
+            @RequestBody Map<String, Object> params) {
+            
+        Long userId = AuthInterceptor.getCurrentUserId();
+        String channel = params.getOrDefault("channel", "alipay").toString();
+=======
             @RequestBody PaymentRequests.InitiateRequest req) {
             
         Long userId = AuthInterceptor.getCurrentUserId();
         String channel = req.getChannel() == null ? "alipay" : req.getChannel();
+>>>>>>> origin/main
         
         Map<String, Object> payParams = paymentService.initiatePayment(userId, orderId, channel);
         
@@ -77,9 +87,15 @@ public class PaymentController {
      * POST /v1/payments/webhook
      */
     @PostMapping("/webhook")
+<<<<<<< HEAD
+    public ResponseEntity<Map<String, Object>> webhook(@RequestBody Map<String, Object> params) {
+        String tradeId = (String) params.get("tradeId");
+        String status = (String) params.get("status");
+=======
     public ResponseEntity<Map<String, Object>> webhook(@RequestBody PaymentRequests.WebhookRequest req) {
         String tradeId = req.getTradeId();
         String status = req.getStatus();
+>>>>>>> origin/main
         
         // 实际开发中需要验签(sign)，此处略过
         boolean success = paymentService.handleWebhook(tradeId, status);

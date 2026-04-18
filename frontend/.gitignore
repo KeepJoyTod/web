@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+mysql-data/
+logs/
+.pids/
+api_testcases/pytest/__pycache__/
+api_testcases/pytest/pytest-report.html
+api_testcases/pytest/report.xml

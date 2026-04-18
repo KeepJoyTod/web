@@ -7,7 +7,6 @@ import UiEmptyState from '../components/ui/UiEmptyState.vue'
 import { useCartStore } from '../stores/cart'
 import { useToastStore } from '../stores/toast'
 import { api } from '../lib/api'
-import { getProductCover, type ProductCategoryHint } from '../lib/productCovers'
 
 type Product = {
   id: string
@@ -159,25 +158,11 @@ const load = async () => {
   const res = await api.get('/v1/products', { params: { category: catId, page: 1, size: 50 } })
   const list = Array.isArray(res.data?.data) ? res.data.data : []
   const tone = activeCategory.value?.tone ?? '#0ea5e9'
-  const hintMap: Record<number, ProductCategoryHint> = {
-    1: 'phone',
-    2: 'computer',
-    3: 'appliance',
-    4: 'digital',
-    5: 'daily',
-    6: 'beauty',
-    7: 'food',
-    8: 'sport',
-  }
-  const hint = hintMap[catId]
-  const items: Product[] = list.map((x: any) => {
-    const name = String(x.name ?? '商品')
-    const coverUrl = getProductCover(name, hint, String(x.id ?? ''))
-    return {
-      id: String(x.id ?? ''),
-      title: name,
-      price: Number(x.price ?? 0),
-      cover: coverUrl || coverSvg(name, tone),
+  const items: Product[] = list.map((x: any) => ({
+    id: String(x.id ?? ''),
+    title: String(x.name ?? '商品'),
+    price: Number(x.price ?? 0),
+    cover: coverSvg(String(x.name ?? '商品'), tone),
     tags: (() => {
       const tSet = new Set<string>()
       const pushTag = (v: any) => {
@@ -211,19 +196,14 @@ const load = async () => {
       const s = String(x.subCategory ?? x.sub ?? '').trim()
       return s || undefined
     })(),
-      rating: 4.6,
-      sales: 0,
-      categoryId: active.value,
-    } as Product
-  })
+    rating: 4.6,
+    sales: 0,
+    categoryId: active.value,
+  }))
   // 将新类目结果合并到 all 中（保留其它类目已有数据）
   all.value = [...items, ...all.value.filter((p) => p.categoryId !== active.value)]
 }
 
-const onImgErr = (e: Event, title: string) => {
-  const el = e.target as HTMLImageElement
-  el.src = coverSvg(title, activeCategory.value?.tone ?? '#0ea5e9')
-}
 watch(active, () => {
   load().catch(() => {
     // 出错则仅清空该类目数据
@@ -305,7 +285,7 @@ watch(active, () => {
       <div v-else class="grid" aria-label="商品列表">
         <article v-for="p in filtered" :key="p.id" class="card">
           <button class="cardBtn" type="button" @click="goProduct(p)">
-            <img class="cover" :src="p.cover" :alt="p.title" loading="lazy" decoding="async" @error="onImgErr($event, p.title)" />
+            <img class="cover" :src="p.cover" :alt="p.title" loading="lazy" decoding="async" />
             <div class="meta">
               <div class="name">{{ p.title }}</div>
               <div class="row">

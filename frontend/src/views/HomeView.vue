@@ -4,7 +4,6 @@ import { useRouter } from 'vue-router'
 
 import { useAuthStore } from '../stores/auth'
 import { api } from '../lib/api'
-import { getProductCover } from '../lib/productCovers'
 
 type LoadState = 'loading' | 'ready' | 'empty' | 'error'
 
@@ -117,13 +116,11 @@ const load = async () => {
     products.value = list.slice(0, 6).map((x: any, i: number) => {
       const name = String(x.name ?? '商品')
       const price = Number(x.price ?? 0)
-      const id = String(x.id ?? '')
-      const coverUrl = getProductCover(name, undefined, id)
       return {
-        id,
+        id: String(x.id ?? ''),
         title: name,
         price,
-        cover: coverUrl || coverSvg(name, ['#aa3bff', '#2563eb', '#0ea5e9', '#16a34a', '#ec4899', '#f59e0b'][i % 6]),
+        cover: coverSvg(name, ['#aa3bff', '#2563eb', '#0ea5e9', '#16a34a', '#ec4899', '#f59e0b'][i % 6]),
         tags: [],
         rating: 4.6,
       } as ProductCard
@@ -219,8 +216,8 @@ onMounted(() => {
 
         <div v-else class="grid" aria-label="商品列表">
           <article v-for="p in products" :key="p.id" class="card">
-          <button class="cardBtn" type="button" @click="goProduct(p)">
-            <img class="cover" :src="p.cover" :alt="p.title" loading="lazy" decoding="async" @error="(e) => ((e.target as HTMLImageElement).src = coverSvg(p.title, ['#aa3bff', '#2563eb', '#0ea5e9', '#16a34a', '#ec4899', '#f59e0b'][0]))" />
+            <button class="cardBtn" type="button" @click="goProduct(p)">
+              <img class="cover" :src="p.cover" :alt="p.title" loading="lazy" decoding="async" />
               <div class="meta">
                 <div class="title">{{ p.title }}</div>
                 <div class="row">

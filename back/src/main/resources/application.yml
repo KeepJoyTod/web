@@ -1,11 +1,12 @@
 server:
-  port: 8080
+  port: 8082
   servlet:
     context-path: /api
 
 spring:
   application:
-    name:backend
+   
+    name: web
   datasource:
     url: jdbc:mysql://localhost:3306/web?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false
     username: root
@@ -14,14 +15,7 @@ spring:
 
 mybatis:
   mapper-locations: classpath:mapper/*.xml
-  type-aliases-package: com..web.pojo
+  type-aliases-package: com.web.pojo
   configuration:
     map-underscore-to-camel-case: true
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
-
-springdoc:
-  api-docs:
-    path: /v3/api-docs
-  swagger-ui:
-    path: /swagger-ui.html
-  writer-with-default-pretty-printer: true

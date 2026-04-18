@@ -8,8 +8,7 @@ purpose: "存放 Figma 链接与解析目标，供 figma-to-vue3 工作流使用
 
 ## 当前默认链接（优先解析）
 
-- url:https://www.figma.com/design/R0Aw8Ey2wRDHKurGtu47iE/%E7%94%B5%E5%95%86?node-id=15-5895&t=tj3H3tMbh8jOg2Rs-4
-- page/frame/node:
+- url: https://www.figma.com/design/R0Aw8Ey2wRDHKurGtu47iE/%E7%94%B5%E5%95%86?node-id=15-5895&t=LsSppYna2j4XKnO4-4
 - 备注:商品详情/购买界面
 ## 备选链接
 
@@ -29,4 +28,3 @@ purpose: "存放 Figma 链接与解析目标，供 figma-to-vue3 工作流使用
 - 响应式：默认 Desktop 优先（如需 Mobile/Tablet 说明断点）
 - 样式方案：优先跟随项目现有（如 Tailwind / scoped CSS / CSS Modules）
 - 交互：说明需要的折叠/弹窗/路由跳转/表单校验等
-

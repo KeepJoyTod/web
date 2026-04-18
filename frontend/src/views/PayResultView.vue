@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import UiButton from '../components/ui/UiButton.vue'
 import UiEmptyState from '../components/ui/UiEmptyState.vue'
 import UiPageHeader from '../components/ui/UiPageHeader.vue'
+import { api } from '../lib/api'
 import { useCartStore } from '../stores/cart'
 import { useOrderDraftStore } from '../stores/orderDraft'
 import { useOrdersStore } from '../stores/orders'
@@ -30,71 +31,150 @@ const status = computed(() => orderDraft.paymentStatus)
 const payable = computed(() => orderDraft.draft.amounts?.payable ?? 0)
 const priceFmt = new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' })
 
+const channel = computed(() => {
+  const raw = route.query.channel
+  const v = typeof raw === 'string' ? raw : ''
+  if (v === 'wechat' || v === 'alipay' || v === 'unionpay' || v === 'balance') return v
+  return 'alipay'
+})
+
+const autoPay = computed(() => {
+  const raw = route.query.autoPay
+  return raw === '1' || raw === 'true'
+})
+
 const polling = ref(false)
-const ticks = ref(0)
+const loading = ref(false)
+const lastTradeId = ref<string>('')
 let timer: number | null = null
 
 const canShow = computed(() => Boolean(orderId.value) && orderDraft.orderId === orderId.value)
 
 const stop = () => {
   polling.value = false
-  ticks.value = 0
   if (timer != null) {
     window.clearInterval(timer)
     timer = null
   }
 }
 
-const start = () => {
-  stop()
-  polling.value = true
-  ticks.value = 0
-  timer = window.setInterval(() => {
-    ticks.value += 1
-
-    if (orderDraft.paymentStatus === 'SUCCESS' || orderDraft.paymentStatus === 'FAILED') {
-      stop()
-      return
+const syncOrder = async () => {
+  if (!orderId.value) return
+  try {
+    const res = await api.get(`/v1/orders/${encodeURIComponent(orderId.value)}`)
+    const data = res.data?.data
+    if (data) {
+      orders.upsertFromBackend(data)
+      const total = Number(data.totalAmount ?? 0)
+      const pay = Number(data.payAmount ?? 0)
+      if (orderDraft.draft.amounts) {
+        orderDraft.draft.amounts.items = Number.isFinite(total) ? total : orderDraft.draft.amounts.items
+        orderDraft.draft.amounts.payable = Number.isFinite(pay) ? pay : orderDraft.draft.amounts.payable
+        orderDraft.draft.amounts.discount = Math.max(0, (Number.isFinite(total) ? total : 0) - (Number.isFinite(pay) ? pay : 0))
+        orderDraft.draft.amounts.shipping = 0
+      }
+      const st = data.status
+      if (st === 1 || st === 'Paid') {
+        const paidAt = new Date().toISOString()
+        orderDraft.markPaid(paidAt)
+      }
+      if (st === 4 || st === 'Cancelled') {
+        orderDraft.markFailed('订单已取消')
+      }
     }
+  } catch {}
+}
 
-    if (ticks.value < 2) return
-
-    const r = Math.random()
-    if (r < 0.75) {
-      const paidAt = new Date().toISOString()
+const refreshPaymentStatus = async () => {
+  if (!orderId.value) return
+  try {
+    const res = await api.get(`/v1/payments/${encodeURIComponent(orderId.value)}/status`)
+    const p = res.data?.data || {}
+    const st = String(p.status ?? '')
+    if (st === 'SUCCESS') {
+      const paidAt = p.paidAt ? new Date(p.paidAt).toISOString() : new Date().toISOString()
       orderDraft.markPaid(paidAt)
-      if (orderId.value) orders.markPaid(orderId.value, paidAt)
+      orders.markPaid(orderId.value, paidAt)
       cart.clear()
       toast.push({ type: 'success', message: '支付成功' })
-      if (orderId.value) {
-        notifications.push({
-          type: 'order_paid',
-          title: '订单已支付',
-          content: `订单号 ${orderId.value} 已支付成功`,
-          relatedId: orderId.value,
-        })
-        tracker.track('payment_success', { orderId: orderId.value })
-      }
+      notifications.push({
+        type: 'order_paid',
+        title: '订单已支付',
+        content: `订单号 ${orderId.value} 已支付成功`,
+        relatedId: orderId.value,
+      })
+      tracker.track('payment_success', { orderId: orderId.value })
+      stop()
+      await syncOrder()
+      return
+    }
+    if (st === 'FAILED') {
+      orderDraft.markFailed('支付失败')
+      toast.push({ type: 'error', message: '支付失败' })
+      tracker.track('payment_failed', { orderId: orderId.value, reason: 'failed' })
+      stop()
+      await syncOrder()
+      return
+    }
+    orderDraft.setProcessing()
+  } catch (e) {
+    const code = (e as any)?.response?.data?.code
+    if (code === 404) {
+      orderDraft.setInit()
       stop()
       return
     }
-    if (ticks.value >= 5) {
-      orderDraft.markFailed('支付处理中超时，请重试')
-      toast.push({ type: 'error', message: '支付失败' })
-      if (orderId.value) tracker.track('payment_failed', { orderId: orderId.value, reason: 'timeout' })
-      stop()
+  }
+}
+
+const startPolling = () => {
+  stop()
+  polling.value = true
+  timer = window.setInterval(() => {
+    refreshPaymentStatus().catch(() => {})
+  }, 1200)
+}
+
+const startPayment = async () => {
+  if (!orderId.value) return
+  loading.value = true
+  try {
+    orderDraft.setProcessing()
+    tracker.track('payment_start', { orderId: orderId.value, channel: channel.value })
+    const res = await api.post(`/v1/payments/${encodeURIComponent(orderId.value)}/pay`, { channel: channel.value })
+    const data = res.data?.data || {}
+    const tradeId = String(data.tradeId ?? '')
+    lastTradeId.value = tradeId
+    startPolling()
+    if (tradeId) {
+      await new Promise((r) => window.setTimeout(r, 800))
+      await api.post('/v1/payments/webhook', { tradeId, status: 'SUCCESS' })
     }
-  }, 1000)
+  } catch (e) {
+    const msg = (e as any)?.response?.data?.message || (e as any)?.message || '发起支付失败'
+    orderDraft.markFailed(msg)
+    toast.push({ type: 'error', message: msg })
+    tracker.track('payment_failed', { orderId: orderId.value, reason: 'initiate_failed' })
+    stop()
+  } finally {
+    loading.value = false
+  }
 }
 
 const retry = () => {
-  orderDraft.setProcessing()
-  if (orderId.value) tracker.track('payment_retry', { orderId: orderId.value })
-  start()
+  if (!orderId.value) return
+  tracker.track('payment_retry', { orderId: orderId.value })
+  startPayment().catch(() => {})
 }
 
 onMounted(() => {
-  if (orderDraft.paymentStatus === 'PROCESSING') start()
+  if (!canShow.value) return
+  syncOrder().catch(() => {})
+  if (orderDraft.paymentStatus === 'PROCESSING') startPolling()
+  refreshPaymentStatus().catch(() => {})
+  if (autoPay.value && orderDraft.paymentStatus === 'INIT') {
+    startPayment().catch(() => {})
+  }
 })
 
 onBeforeUnmount(() => {
@@ -133,7 +213,7 @@ onBeforeUnmount(() => {
           <div class="badge info">处理中</div>
           <div class="desc">正在同步支付状态，请稍候</div>
           <div class="actions">
-            <UiButton size="sm" type="button" :disabled="polling" @click="start">刷新状态</UiButton>
+            <UiButton size="sm" type="button" :disabled="polling" @click="startPolling">刷新状态</UiButton>
             <UiButton size="sm" type="button" @click="router.push({ name: 'cart' })">返回购物车</UiButton>
           </div>
         </div>
@@ -159,7 +239,7 @@ onBeforeUnmount(() => {
         <div v-else class="status">
           <div class="badge info">待支付</div>
           <div class="actions">
-            <UiButton variant="primary" type="button" @click="retry">发起支付</UiButton>
+            <UiButton variant="primary" type="button" :loading="loading" @click="retry">发起支付</UiButton>
           </div>
         </div>
       </div>

@@ -64,6 +64,18 @@ export const router = createRouter({
       component: () => import('../views/PrivacyPolicyView.vue'),
       meta: { title: '隐私政策', hideNav: true },
     },
+    {
+      path: '/help-center',
+      name: 'helpCenter',
+      component: () => import('../views/HelpCenterView.vue'),
+      meta: { title: '帮助中心', hideNav: true },
+    },
+    {
+      path: '/faq',
+      name: 'faq',
+      component: () => import('../views/FaqView.vue'),
+      meta: { title: '常见问题', hideNav: true },
+    },
 
     { path: '/phone', name: 'phone', component: () => import('../views/PhoneView.vue'), meta: { title: '手机' } },
     { path: '/computer', name: 'computer', component: () => import('../views/ComputerView.vue'), meta: { title: '电脑' } },
@@ -79,7 +91,13 @@ export const router = createRouter({
       path: '/checkout',
       name: 'checkout',
       component: () => import('../views/CheckoutView.vue'),
-      meta: { title: '结算', hideNav: true, requiresAuth: true },
+      meta: { title: '确认订单', hideNav: true, requiresAuth: true },
+    },
+    {
+      path: '/cashier',
+      name: 'cashier',
+      component: () => import('../views/CashierView.vue'),
+      meta: { title: '收银台', hideNav: true, requiresAuth: true },
     },
     { path: '/pay-result', name: 'payResult', component: () => import('../views/PayResultView.vue'), meta: { title: '支付结果', hideNav: true } },
 
@@ -90,10 +108,22 @@ export const router = createRouter({
       meta: { title: '我的订单', hideNav: true },
     },
     {
+      path: '/favorites',
+      name: 'favorites',
+      component: () => import('../views/FavoritesView.vue'),
+      meta: { title: '我的收藏', hideNav: true, requiresAuth: true },
+    },
+    {
       path: '/orders/:id',
       name: 'orderDetail',
       component: () => import('../views/OrderDetailView.vue'),
       meta: { title: '订单详情', hideNav: true },
+    },
+    {
+      path: '/orders/:id/logistics',
+      name: 'orderLogistics',
+      component: () => import('../views/OrderLogisticsView.vue'),
+      meta: { title: '物流跟踪', hideNav: true, requiresAuth: true },
     },
     {
       path: '/messages',

@@ -3,7 +3,10 @@ package com.web.controller;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.map.MapUtil;
 import com.web.interceptor.AuthInterceptor;
+<<<<<<< HEAD
+=======
 import com.web.dto.NotificationRequests;
+>>>>>>> origin/main
 import com.web.pojo.Notification;
 import com.web.service.NotificationService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,12 +39,21 @@ public class NotificationController {
     }
 
     @PostMapping
+<<<<<<< HEAD
+    public ResponseEntity<Map<String, Object>> create(@RequestBody Map<String, Object> params) {
+        Long userId = AuthInterceptor.getCurrentUserId();
+        String type = params.getOrDefault("type", "system").toString();
+        String title = params.getOrDefault("title", "").toString();
+        String content = params.getOrDefault("content", "").toString();
+        String relatedId = params.getOrDefault("relatedId", "").toString();
+=======
     public ResponseEntity<Map<String, Object>> create(@RequestBody NotificationRequests.CreateRequest req) {
         Long userId = AuthInterceptor.getCurrentUserId();
         String type = req.getType() == null ? "system" : req.getType();
         String title = req.getTitle() == null ? "" : req.getTitle();
         String content = req.getContent() == null ? "" : req.getContent();
         String relatedId = req.getRelatedId() == null ? "" : req.getRelatedId();
+>>>>>>> origin/main
         Notification n = notificationService.create(userId, type, title, content, relatedId);
         var meta = MapUtil.builder(new java.util.HashMap<String, Object>())
                 .put("requestId", UUID.randomUUID().toString())

@@ -3,7 +3,6 @@ package com.web.controller;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.map.MapUtil;
 import com.web.interceptor.AuthInterceptor;
-import com.web.dto.AftersaleRequests;
 import com.web.pojo.Aftersale;
 import com.web.service.AftersaleService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,14 +29,17 @@ public class AftersaleController {
      * POST /v1/aftersales/apply
      */
     @PostMapping("/apply")
-    public ResponseEntity<Map<String, Object>> applyAftersale(@RequestBody AftersaleRequests.ApplyRequest req) {
+    public ResponseEntity<Map<String, Object>> applyAftersale(@RequestBody Map<String, Object> params) {
         Long userId = AuthInterceptor.getCurrentUserId();
-        Long orderId = req.getOrderId();
-        String orderItemId = req.getOrderItemId() == null ? "" : req.getOrderItemId();
-        Integer qty = req.getQty();
-        String type = req.getType() == null ? "refund_only" : req.getType();
-        String reason = req.getReason() == null ? "" : req.getReason();
-        String evidence = req.getEvidence();
+        Long orderId = Long.valueOf(params.get("orderId").toString());
+        String orderItemId = params.getOrDefault("orderItemId", "").toString();
+        Integer qty = null;
+        try {
+            qty = params.get("qty") == null ? null : Integer.valueOf(params.get("qty").toString());
+        } catch (Exception ignore) {}
+        String type = params.getOrDefault("type", "refund_only").toString();
+        String reason = params.getOrDefault("reason", "").toString();
+        String evidence = params.getOrDefault("evidence", null) == null ? null : params.get("evidence").toString();
         
         Aftersale aftersale = aftersaleService.applyAftersale(userId, orderId, orderItemId, qty, type, reason, evidence);
         

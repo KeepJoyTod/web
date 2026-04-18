@@ -24,3 +24,11 @@ frontend/.env.production.local
 # OS
 .DS_Store
 Thumbs.db
+
+# Other
+.pids/
+logs/
+mysql-data/
+api_testcases/pytest/__pycache__/
+api_testcases/pytest/pytest-report.html
+api_testcases/pytest/report.xml

@@ -2,7 +2,10 @@ package com.web.controller;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.map.MapUtil;
+<<<<<<< HEAD
+=======
 import com.web.dto.UserAddressRequests;
+>>>>>>> origin/main
 import com.web.interceptor.AuthInterceptor;
 import com.web.pojo.User;
 import com.web.pojo.UserAddress;
@@ -73,6 +76,11 @@ public class UserController {
      * POST /v1/me/addresses
      */
     @PostMapping("/addresses")
+<<<<<<< HEAD
+    public ResponseEntity<Map<String, Object>> addAddress(@RequestBody UserAddress address) {
+        Long userId = AuthInterceptor.getCurrentUserId();
+        address.setUserId(userId);
+=======
     public ResponseEntity<Map<String, Object>> addAddress(@RequestBody UserAddressRequests.CreateRequest req) {
         Long userId = AuthInterceptor.getCurrentUserId();
 
@@ -83,6 +91,7 @@ public class UserController {
         address.setRegion(req.getRegion());
         address.setDetail(req.getDetail());
         address.setIsDefault(req.getIsDefault());
+>>>>>>> origin/main
         
         UserAddress saved = userAddressService.addAddress(address);
         
@@ -98,6 +107,12 @@ public class UserController {
      * PUT /v1/me/addresses/{id}
      */
     @PutMapping("/addresses/{id}")
+<<<<<<< HEAD
+    public ResponseEntity<Map<String, Object>> updateAddress(@PathVariable Long id, @RequestBody UserAddress address) {
+        Long userId = AuthInterceptor.getCurrentUserId();
+        address.setId(id);
+        address.setUserId(userId);
+=======
     public ResponseEntity<Map<String, Object>> updateAddress(@PathVariable Long id, @RequestBody UserAddressRequests.UpdateRequest req) {
         Long userId = AuthInterceptor.getCurrentUserId();
 
@@ -109,6 +124,7 @@ public class UserController {
         address.setRegion(req.getRegion());
         address.setDetail(req.getDetail());
         address.setIsDefault(req.getIsDefault());
+>>>>>>> origin/main
         
         boolean success = userAddressService.updateAddress(address);
         

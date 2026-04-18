@@ -5,7 +5,7 @@ import { api } from '../lib/api'
 import type { Address } from './orderDraft'
 import type { CartItem } from './cart'
 
-export type OrderStatus = 'Created' | 'Paid' | 'Cancelled'
+export type OrderStatus = 'Created' | 'Paid' | 'Shipped' | 'Completed' | 'Cancelled'
 
 export type OrderItem = {
   orderItemId: string
@@ -64,6 +64,8 @@ export const useOrdersStore = defineStore('orders', () => {
 
   const mapStatus = (s: any): OrderStatus => {
     if (s === 1 || s === 'Paid') return 'Paid'
+    if (s === 2 || s === 'Shipped') return 'Shipped'
+    if (s === 3 || s === 'Completed') return 'Completed'
     if (s === 4 || s === 'Cancelled') return 'Cancelled'
     return 'Created'
   }

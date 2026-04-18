@@ -8,7 +8,6 @@ import UiInput from '../components/ui/UiInput.vue'
 import { useCartStore } from '../stores/cart'
 import { api } from '../lib/api'
 import { useToastStore } from '../stores/toast'
-import { getProductCover } from '../lib/productCovers'
 
 type LoadState = 'loading' | 'ready' | 'error'
 type SortKey = 'default' | 'sales' | 'price_asc' | 'price_desc'
@@ -113,12 +112,11 @@ const load = async () => {
       const name = String(x.name ?? x.title ?? '商品')
       const price = Number(x.price ?? 0)
       const id = String(x.id ?? '')
-      const coverUrl = getProductCover(name, undefined, id)
       return {
         id,
         title: name,
         price,
-        cover: coverUrl || coverSvg(name, '#0ea5e9'),
+        cover: coverSvg(name, '#0ea5e9'),
         tags: [],
         rating: 4.5,
         sales: 0,
@@ -164,7 +162,7 @@ onMounted(() => {
       <div v-else class="grid" aria-label="搜索结果">
         <article v-for="p in filtered" :key="p.id" class="card">
           <button class="cardBtn" type="button" @click="goProduct(p)">
-            <img class="cover" :src="p.cover" :alt="p.title" loading="lazy" decoding="async" @error="(e) => ((e.target as HTMLImageElement).src = coverSvg(p.title, '#0ea5e9'))" />
+            <img class="cover" :src="p.cover" :alt="p.title" loading="lazy" decoding="async" />
             <div class="meta">
               <div class="titleText">{{ p.title }}</div>
               <div class="row">

@@ -2,12 +2,17 @@ package com.web.controller;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.map.MapUtil;
+<<<<<<< HEAD
+import com.web.pojo.Product;
+import com.web.service.ProductService;
+=======
 import com.web.dto.ProductRequests;
 import com.web.pojo.Product;
 import com.web.service.ProductService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+>>>>>>> origin/main
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,7 +24,10 @@ import java.util.stream.Collectors;
 /**
  * 商品相关接口 (RESTful API)
  */
+<<<<<<< HEAD
+=======
 @Tag(name = "商品管理", description = "商品查询与管理接口")
+>>>>>>> origin/main
 @RestController
 @RequestMapping("/v1/products")
 public class ProductController {
@@ -27,6 +35,18 @@ public class ProductController {
     @Autowired
     private ProductService productService;
 
+<<<<<<< HEAD
+    /**
+     * 获取商品列表
+     * GET /v1/products?keyword=&category=&page=&size=
+     */
+    @GetMapping
+    public ResponseEntity<Map<String, Object>> getProducts(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Long category,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+=======
     @Operation(summary = "获取商品列表", description = "根据关键词、类目分页获取商品列表")
     @GetMapping
     public ResponseEntity<Map<String, Object>> getProducts(
@@ -34,6 +54,7 @@ public class ProductController {
             @Parameter(description = "类目ID") @RequestParam(required = false) Long category,
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") int page,
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") int size) {
+>>>>>>> origin/main
         
         List<Product> list = productService.getProductList(keyword, category, page, size);
         
@@ -51,9 +72,18 @@ public class ProductController {
         return ResponseEntity.ok(result);
     }
 
+<<<<<<< HEAD
+    /**
+     * 获取商品详情
+     * GET /v1/products/{id}
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<Map<String, Object>> getProductById(@PathVariable Long id) {
+=======
     @Operation(summary = "获取商品详情", description = "根据商品ID获取详细信息")
     @GetMapping("/{id}")
     public ResponseEntity<Map<String, Object>> getProductById(@Parameter(description = "商品ID") @PathVariable Long id) {
+>>>>>>> origin/main
         Product product = productService.getProductById(id);
         if (product == null) {
             return ResponseEntity.status(404).body(
@@ -76,6 +106,13 @@ public class ProductController {
         return ResponseEntity.ok(result);
     }
 
+<<<<<<< HEAD
+    /**
+     * 创建商品 (仅示例，通常在 /v1/merchant/products)
+     */
+    @PostMapping
+    public ResponseEntity<Map<String, Object>> createProduct(@RequestBody Product product) {
+=======
     @Operation(summary = "创建商品", description = "创建新商品（仅限管理员/示例）")
     @PostMapping
     public ResponseEntity<Map<String, Object>> createProduct(@RequestBody ProductRequests.CreateRequest req) {
@@ -88,6 +125,7 @@ public class ProductController {
         product.setStock(req.getStock());
         product.setStatus(req.getStatus());
 
+>>>>>>> origin/main
         boolean success = productService.createProduct(product);
         
         Map<String, Object> result = MapUtil.builder(new java.util.HashMap<String, Object>())

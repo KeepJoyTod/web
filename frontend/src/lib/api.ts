@@ -30,8 +30,11 @@ api.interceptors.response.use(
       if (code === 401) {
         window.dispatchEvent(new CustomEvent('app:unauthorized'))
       }
-      const msg = resp?.data?.message || '请求失败'
-      return Promise.reject(new Error(msg))
+      const msg = resp?.data?.message || resp?.data?.error?.message || '请求失败'
+      const err = new Error(msg) as any
+      err.response = resp
+      err.code = code
+      return Promise.reject(err)
     }
     return resp
   },

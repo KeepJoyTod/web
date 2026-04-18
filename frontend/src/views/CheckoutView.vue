@@ -2,10 +2,7 @@
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
-import UiButton from '../components/ui/UiButton.vue'
 import UiEmptyState from '../components/ui/UiEmptyState.vue'
-import UiInput from '../components/ui/UiInput.vue'
-import UiPageHeader from '../components/ui/UiPageHeader.vue'
 import { useCartStore } from '../stores/cart'
 import { useOrdersStore } from '../stores/orders'
 import { useOrderDraftStore } from '../stores/orderDraft'
@@ -13,6 +10,11 @@ import { useNotificationsStore } from '../stores/notifications'
 import { useTrackerStore } from '../stores/tracker'
 import { useToastStore } from '../stores/toast'
 import { api } from '../lib/api'
+
+import backCartIconUrl from '../assets/figma/checkout/back-cart.svg'
+import iconAddressUrl from '../assets/figma/checkout/icon-address.svg'
+import iconCouponUrl from '../assets/figma/checkout/icon-coupon.svg'
+import iconInvoiceUrl from '../assets/figma/checkout/icon-invoice.svg'
 
 const router = useRouter()
 const cart = useCartStore()
@@ -22,13 +24,61 @@ const notifications = useNotificationsStore()
 const tracker = useTrackerStore()
 const toast = useToastStore()
 
-const receiver = ref(orderDraft.draft.address?.receiver ?? '')
-const phone = ref(orderDraft.draft.address?.phone ?? '')
-const region = ref(orderDraft.draft.address?.region ?? '')
-const detail = ref(orderDraft.draft.address?.detail ?? '')
+type Address = {
+  id: string
+  receiver: string
+  phone: string
+  region: string
+  detail: string
+  isDefault?: boolean
+}
 
+type InvoiceType = 'none' | 'personal' | 'company'
+
+type Coupon = {
+  id: string
+  title: string
+  code: string
+  minSpend: number
+  discount: number
+}
+
+const addresses = ref<Address[]>([
+  {
+    id: 'addr_1',
+    receiver: orderDraft.draft.address?.receiver || '张三',
+    phone: orderDraft.draft.address?.phone || '13800000000',
+    region: orderDraft.draft.address?.region || '北京市朝阳区',
+    detail: orderDraft.draft.address?.detail || '朝阳区xx路xx号',
+    isDefault: true,
+  },
+  {
+    id: 'addr_2',
+    receiver: '李四',
+    phone: '13900000000',
+    region: '上海市浦东新区',
+    detail: '浦东新区yy路yy号',
+  },
+])
+
+const selectedAddressId = ref(addresses.value[0]?.id ?? '')
+
+const addOpen = ref(false)
+const addReceiver = ref('')
+const addPhone = ref('')
+const addRegion = ref('')
+const addDetail = ref('')
+
+const invoiceType = ref<InvoiceType>('none')
 const invoiceTitle = ref(orderDraft.draft.invoiceTitle ?? '')
-const usePoints = ref(String(orderDraft.draft.usePoints ?? 0))
+
+const coupons: Coupon[] = [
+  { id: 'c_new500', title: '新客专享满5000减500', code: 'NEW500', minSpend: 5000, discount: 500 },
+  { id: 'c_save300', title: '全场满3000减300', code: 'SAVE300', minSpend: 3000, discount: 300 },
+  { id: 'c_spring100', title: '春季特惠满1000减100', code: 'SPRING100', minSpend: 1000, discount: 100 },
+]
+
+const selectedCouponId = ref<string>(coupons[0]?.id ?? '')
 
 const submitting = ref(false)
 
@@ -37,79 +87,112 @@ const priceFmt = new Intl.NumberFormat('zh-CN', { style: 'currency', currency: '
 
 const itemsAmount = computed(() => cart.amount)
 
-const pointsDiscount = computed(() => {
-  const raw = usePoints.value.trim()
-  if (raw === '') return 0
-  const pts = Number(raw)
-  if (!Number.isFinite(pts) || pts <= 0) return 0
-  const money = Math.floor(pts) / 100
-  return Math.min(money, Math.max(0, itemsAmount.value))
-})
-
 const shipping = computed(() => 0)
 
-const payable = computed(() => {
-  return Math.max(0, itemsAmount.value - pointsDiscount.value + shipping.value)
+const selectedAddress = computed(() => addresses.value.find((x) => x.id === selectedAddressId.value) ?? null)
+
+const couponDiscount = computed(() => {
+  const c = coupons.find((x) => x.id === selectedCouponId.value) ?? null
+  if (!c) return 0
+  if (itemsAmount.value < c.minSpend) return 0
+  return Math.min(c.discount, Math.max(0, itemsAmount.value))
 })
 
-const phoneOk = computed(() => /^1\d{10}$/.test(phone.value.trim()))
+const discountAmount = computed(() => couponDiscount.value)
+
+const payable = computed(() => {
+  return Math.max(0, itemsAmount.value - discountAmount.value + shipping.value)
+})
 
 const canSubmit = computed(() => {
   if (submitting.value) return false
   if (isEmpty.value) return false
-  if (!receiver.value.trim()) return false
-  if (!phoneOk.value) return false
-  if (!region.value.trim()) return false
-  if (!detail.value.trim()) return false
+  if (!selectedAddress.value) return false
+  if (invoiceType.value !== 'none' && !invoiceTitle.value.trim()) return false
   return true
 })
 
-const submit = async () => {
-  if (!canSubmit.value) {
+const openAdd = () => {
+  addReceiver.value = ''
+  addPhone.value = ''
+  addRegion.value = ''
+  addDetail.value = ''
+  addOpen.value = true
+}
+
+const saveAdd = () => {
+  const receiver = addReceiver.value.trim()
+  const phone = addPhone.value.trim()
+  const region = addRegion.value.trim()
+  const detail = addDetail.value.trim()
+  if (!receiver || !/^1\\d{10}$/.test(phone) || !region || !detail) {
     toast.push({ type: 'error', message: '请完整填写收货信息' })
     return
   }
+  const id = `addr_${Date.now()}`
+  addresses.value = [{ id, receiver, phone, region, detail }, ...addresses.value.map((x) => ({ ...x, isDefault: false }))]
+  selectedAddressId.value = id
+  addOpen.value = false
+}
+
+const submit = async () => {
+  if (!canSubmit.value) return
 
   submitting.value = true
   try {
-    orderDraft.setAddress({
-      receiver: receiver.value.trim(),
-      phone: phone.value.trim(),
-      region: region.value.trim(),
-      detail: detail.value.trim(),
-    })
+    if (selectedAddress.value) {
+      orderDraft.setAddress({
+        receiver: selectedAddress.value.receiver,
+        phone: selectedAddress.value.phone,
+        region: selectedAddress.value.region,
+        detail: selectedAddress.value.detail,
+      })
+    }
     orderDraft.setInvoiceTitle(invoiceTitle.value.trim())
-    orderDraft.setUsePoints(Number(usePoints.value.trim() || 0))
+    orderDraft.setCouponCode(coupons.find((x) => x.id === selectedCouponId.value)?.code ?? '')
+
+    const sync = (cart as any)?.syncToServer
+    if (typeof sync === 'function') {
+      await sync()
+    } else {
+      toast.push({ type: 'info', message: '页面已更新，请刷新后重试' })
+      return
+    }
 
     const res = await api.post('/v1/orders/checkout', {
       addressId: 0,
+      couponCode: orderDraft.draft.couponCode,
     })
     const data = res.data?.data || {}
     const orderId: string = String(data.id ?? data.orderId ?? '')
     const mappedId = orders.upsertFromBackend(data)
+    const backendTotal = Number(data.totalAmount ?? itemsAmount.value)
+    const backendPayable = Number(data.payAmount ?? payable.value)
+    const backendDiscount = Math.max(0, (Number.isFinite(backendTotal) ? backendTotal : 0) - (Number.isFinite(backendPayable) ? backendPayable : 0))
 
     notifications.push({
       type: 'order_created',
       title: '订单已创建',
-      content: `订单号 ${orderId}，待支付金额 ${priceFmt.format(payable.value)}`,
+      content: `订单号 ${orderId}，待支付金额 ${priceFmt.format(backendPayable)}`,
       relatedId: orderId,
     })
 
     tracker.track('checkout_submit', {
       orderId: mappedId,
       itemsCount: cart.count,
-      itemsAmount: itemsAmount.value,
-      discount: pointsDiscount.value,
-      shipping: shipping.value,
-      payable: payable.value,
+      itemsAmount: backendTotal,
+      discount: backendDiscount,
+      shipping: 0,
+      payable: backendPayable,
     })
 
     orderDraft.createOrder({
-      itemsAmount: itemsAmount.value,
-      discount: pointsDiscount.value,
-      shipping: shipping.value,
+      orderId: mappedId,
+      itemsAmount: backendTotal,
+      discount: backendDiscount,
+      shipping: 0,
     })
-    await router.push({ name: 'payResult', query: { orderId: mappedId } })
+    await router.push({ name: 'cashier', query: { orderId: mappedId } })
   } catch (e) {
     const msg =
       (e as any)?.response?.data?.error?.message ||
@@ -125,8 +208,6 @@ const submit = async () => {
 
 <template>
   <div class="page">
-    <UiPageHeader title="结算" />
-
     <main class="main" aria-live="polite">
       <UiEmptyState
         v-if="isEmpty"
@@ -136,153 +217,457 @@ const submit = async () => {
         @action="router.push({ name: 'home' })"
       />
 
-      <div v-else class="grid">
-        <section class="card" aria-label="收货信息">
-          <div class="cardTitle">收货信息</div>
-          <div class="fields">
-            <div class="field">
-              <div class="label">收货人</div>
-              <UiInput v-model="receiver" autocomplete="name" placeholder="请输入收货人姓名" />
-            </div>
-            <div class="field">
-              <div class="label">手机号</div>
-              <UiInput v-model="phone" inputmode="tel" autocomplete="tel" placeholder="请输入手机号" />
-              <div v-if="phone.trim() && !phoneOk" class="hint" role="alert">手机号格式不正确</div>
-            </div>
-            <div class="field">
-              <div class="label">所在地区</div>
-              <UiInput v-model="region" autocomplete="address-level1" placeholder="例如：北京/朝阳区" />
-            </div>
-            <div class="field">
-              <div class="label">详细地址</div>
-              <UiInput v-model="detail" autocomplete="street-address" placeholder="街道门牌号等" />
+      <div v-else class="wrap">
+        <div class="top">
+          <button class="back" type="button" @click="router.push({ name: 'cart' })">
+            <img class="backIcon" :src="backCartIconUrl" alt="" aria-hidden="true" />
+            <span>返回购物车</span>
+          </button>
+          <h1 class="h1">确认订单</h1>
+        </div>
+
+        <section class="panel" aria-label="收货地址">
+          <div class="panelHead">
+            <img class="panelIcon" :src="iconAddressUrl" alt="" aria-hidden="true" />
+            <div class="panelTitle">收货地址</div>
+          </div>
+
+          <div class="addrList">
+            <label
+              v-for="a in addresses"
+              :key="a.id"
+              class="addr"
+              :class="{ on: selectedAddressId === a.id }"
+            >
+              <input v-model="selectedAddressId" class="radio" type="radio" name="addr" :value="a.id" />
+              <div class="addrBody">
+                <div class="addrTop">
+                  <div class="addrName">{{ a.receiver }}</div>
+                  <div class="addrPhone">{{ a.phone }}</div>
+                  <div v-if="a.isDefault" class="badge">默认</div>
+                </div>
+                <div class="addrLine">{{ a.region }} {{ a.detail }}</div>
+              </div>
+            </label>
+
+            <button class="addLink" type="button" @click="openAdd">+ 添加新地址</button>
+
+            <div v-if="addOpen" class="addForm" aria-label="添加新地址">
+              <div class="formGrid">
+                <input v-model="addReceiver" class="input" type="text" placeholder="收货人" />
+                <input v-model="addPhone" class="input" type="tel" placeholder="手机号" />
+                <input v-model="addRegion" class="input" type="text" placeholder="所在地区" />
+                <input v-model="addDetail" class="input" type="text" placeholder="详细地址" />
+              </div>
+              <div class="formBtns">
+                <button class="btnGhost" type="button" @click="addOpen = false">取消</button>
+                <button class="btnPrimary" type="button" @click="saveAdd">保存</button>
+              </div>
             </div>
           </div>
         </section>
 
-        <section class="card" aria-label="发票与积分">
-          <div class="cardTitle">发票与优惠</div>
-          <div class="fields">
-            <div class="field">
-              <div class="label">发票抬头（可选）</div>
-              <UiInput v-model="invoiceTitle" autocomplete="organization" placeholder="个人/企业名称" />
+        <section class="panel" aria-label="配送方式">
+          <div class="panelTitle">配送方式</div>
+          <label class="shipRow">
+            <input checked class="radio" type="radio" name="ship" />
+            <div class="shipBody">
+              <div class="shipName">快递配送</div>
+              <div class="shipDesc">预计2-3天送达</div>
             </div>
-            <div class="field">
-              <div class="label">积分（100 积分抵 1 元）</div>
-              <UiInput v-model="usePoints" inputmode="numeric" placeholder="可输入 0" />
-              <div v-if="pointsDiscount > 0" class="ok">已抵扣 {{ priceFmt.format(pointsDiscount) }}</div>
-            </div>
+            <div class="shipFee">免运费</div>
+          </label>
+        </section>
+
+        <section class="panel" aria-label="发票信息">
+          <div class="panelHead">
+            <img class="panelIcon" :src="iconInvoiceUrl" alt="" aria-hidden="true" />
+            <div class="panelTitle">发票信息</div>
+          </div>
+          <div class="invoiceRow">
+            <label class="inlineOpt">
+              <input v-model="invoiceType" class="radio" type="radio" name="inv" value="none" />
+              <span>不需要发票</span>
+            </label>
+            <label class="inlineOpt">
+              <input v-model="invoiceType" class="radio" type="radio" name="inv" value="personal" />
+              <span>个人发票</span>
+            </label>
+            <label class="inlineOpt">
+              <input v-model="invoiceType" class="radio" type="radio" name="inv" value="company" />
+              <span>企业发票</span>
+            </label>
+          </div>
+          <div v-if="invoiceType !== 'none'" class="invoiceInput">
+            <input v-model="invoiceTitle" class="input" type="text" placeholder="发票抬头" />
           </div>
         </section>
 
-        <section class="card" aria-label="商品清单">
-          <div class="cardTitle">商品清单</div>
+        <section class="panel" aria-label="优惠券">
+          <div class="panelHead">
+            <img class="panelIcon" :src="iconCouponUrl" alt="" aria-hidden="true" />
+            <div class="panelTitle">优惠券</div>
+          </div>
+          <div class="couponList">
+            <label v-for="c in coupons" :key="c.id" class="coupon" :class="{ on: selectedCouponId === c.id }">
+              <input v-model="selectedCouponId" class="radio" type="radio" name="coupon" :value="c.id" />
+              <div class="couponBody">
+                <div class="couponTitle">{{ c.title }}</div>
+                <div class="couponCode">优惠码: {{ c.code }}</div>
+              </div>
+              <div class="couponVal">-¥{{ c.discount }}</div>
+            </label>
+          </div>
+        </section>
+
+        <section class="panel" aria-label="商品清单">
+          <div class="panelTitle">商品清单</div>
           <div class="items">
             <div v-for="it in cart.items" :key="it.itemId" class="item">
               <img class="cover" :src="it.cover" :alt="it.title" loading="lazy" decoding="async" />
               <div class="meta">
                 <div class="name">{{ it.title }}</div>
-                <div class="sub">SKU：{{ it.skuId }} · x{{ it.qty }}</div>
+                <div class="sub">x{{ it.qty }}</div>
               </div>
               <div class="price">{{ priceFmt.format(it.price * it.qty) }}</div>
             </div>
           </div>
         </section>
+
+        <section class="panel sumPanel" aria-label="金额汇总">
+          <div class="sumList">
+            <div class="sumRow">
+              <div class="sumLabel">商品金额</div>
+              <div class="sumValue">{{ priceFmt.format(itemsAmount) }}</div>
+            </div>
+            <div class="sumRow">
+              <div class="sumLabel">优惠金额</div>
+              <div class="sumValue discount">-{{ priceFmt.format(discountAmount) }}</div>
+            </div>
+            <div class="sumRow">
+              <div class="sumLabel">运费</div>
+              <div class="sumValue">免运费</div>
+            </div>
+            <div class="sumDivider"></div>
+            <div class="sumRow total">
+              <div class="sumTotalLabel">应付金额</div>
+              <div class="sumTotalVal">{{ priceFmt.format(payable) }}</div>
+            </div>
+          </div>
+          <button class="payBtn" type="button" :disabled="!canSubmit" @click="submit">提交订单并支付</button>
+        </section>
       </div>
     </main>
-
-    <footer v-if="!isEmpty" class="footer" aria-label="提交订单">
-      <div class="sum">
-        <div class="sumLabel">应付</div>
-        <div class="sumVal">{{ priceFmt.format(payable) }}</div>
-      </div>
-      <UiButton variant="primary" :loading="submitting" :disabled="!canSubmit" @click="submit">提交订单</UiButton>
-    </footer>
   </div>
 </template>
 
 <style scoped>
 .page {
-  min-height: 100%;
-  display: flex;
-  flex-direction: column;
+  min-height: 100svh;
+  background: #f9fafb;
 }
 
 .main {
-  padding: 14px 16px 92px;
+  padding: 24px 16px 64px;
 }
 
-.grid {
+.wrap {
+  width: min(944px, 100%);
+  margin: 0 auto;
+  display: grid;
+  gap: 16px;
+}
+
+.top {
+  width: min(864px, 100%);
+  margin: 0 auto;
   display: grid;
   gap: 12px;
 }
 
-.card {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--bg);
-  padding: 14px;
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  font: 400 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #4a5565;
+}
+
+.backIcon {
+  width: 20px;
+  height: 20px;
+}
+
+.h1 {
+  margin: 0;
+  font: 600 30px/36px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #0a0a0a;
+}
+
+.panel {
+  width: min(864px, 100%);
+  margin: 0 auto;
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 24px 24px 0;
   display: grid;
-  gap: 10px;
+  gap: 16px;
 }
 
-.cardTitle {
-  color: var(--text-h);
-  font-weight: 900;
+.panelHead {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.fields {
+.panelIcon {
+  width: 20px;
+  height: 20px;
+}
+
+.panelTitle {
+  font: 500 20px/28px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #0a0a0a;
+}
+
+.addrList {
   display: grid;
-  gap: 10px;
+  gap: 8px;
+  padding-bottom: 24px;
 }
 
-.field {
+.addr {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  border-radius: 10px;
+  border: 2px solid #e5e7eb;
+  background: #ffffff;
+  padding: 16px 24px;
+  cursor: pointer;
+}
+
+.addr.on {
+  border-color: #ad46ff;
+  background: #faf5ff;
+}
+
+.radio {
+  margin-top: 4px;
+  width: 13px;
+  height: 13px;
+}
+
+.addrBody {
+  display: grid;
+  gap: 4px;
+  flex: 1;
+}
+
+.addrTop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.addrName,
+.addrPhone {
+  font: 500 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #0a0a0a;
+}
+
+.addrPhone {
+  color: #4a5565;
+}
+
+.badge {
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 4px;
+  background: #f3e8ff;
+  color: #9810fa;
+  font: 500 12px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+
+.addrLine {
+  font: 500 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #4a5565;
+}
+
+.addLink {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  font: 500 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #9810fa;
+}
+
+.addForm {
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  padding: 12px;
+  display: grid;
+  gap: 12px;
+}
+
+.formGrid {
   display: grid;
   gap: 8px;
 }
 
-.label {
-  font-size: var(--font-sm);
-  color: var(--text);
+.input {
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid #d1d5dc;
+  padding: 0 12px;
+  font: 400 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #0a0a0a;
 }
 
-.hint {
-  font-size: var(--font-xs);
-  color: var(--text);
+.formBtns {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
-.ok {
-  font-size: var(--font-xs);
-  color: var(--text-h);
-  border: 1px solid color-mix(in srgb, var(--success) 35%, var(--border));
-  background: var(--success-bg);
-  border-radius: var(--radius-sm);
-  padding: 8px 10px;
+.btnGhost,
+.btnPrimary {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  font: 500 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+
+.btnGhost {
+  border: 1px solid #d1d5dc;
+  background: #ffffff;
+  color: #4a5565;
+}
+
+.btnPrimary {
+  border: 0;
+  background: #9810fa;
+  color: #ffffff;
+}
+
+.shipRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 24px;
+  cursor: pointer;
+}
+
+.shipBody {
+  display: grid;
+  gap: 2px;
+  flex: 1;
+}
+
+.shipName {
+  font: 500 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #0a0a0a;
+}
+
+.shipDesc {
+  font: 500 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #4a5565;
+}
+
+.shipFee {
+  font: 500 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #00a63e;
+}
+
+.invoiceRow {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.inlineOpt {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  font: 500 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #0a0a0a;
+}
+
+.invoiceInput {
+  padding-bottom: 24px;
+}
+
+.couponList {
+  display: grid;
+  gap: 8px;
+  padding-bottom: 24px;
+}
+
+.coupon {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  padding: 12px;
+  cursor: pointer;
+  background: #ffffff;
+}
+
+.coupon.on {
+  border-color: #ad46ff;
+  background: #faf5ff;
+}
+
+.couponBody {
+  flex: 1;
+  display: grid;
+}
+
+.couponTitle {
+  font: 500 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #0a0a0a;
+}
+
+.couponCode {
+  font: 500 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #4a5565;
+}
+
+.couponVal {
+  font: 500 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #e7000b;
 }
 
 .items {
   display: grid;
-  gap: 10px;
+  gap: 12px;
+  padding-bottom: 24px;
 }
 
 .item {
   display: grid;
-  grid-template-columns: 58px minmax(0, 1fr) auto;
-  gap: 10px;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
   align-items: center;
-  padding: 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--code-bg) 55%, transparent);
+  gap: 12px;
 }
 
 .cover {
-  width: 58px;
-  height: 58px;
-  border-radius: var(--radius-sm);
+  width: 64px;
+  height: 64px;
+  border-radius: 10px;
   object-fit: cover;
-  border: 1px solid var(--border);
-  background: var(--code-bg);
+  background: #f3f4f6;
 }
 
 .meta {
@@ -291,69 +676,81 @@ const submit = async () => {
 }
 
 .name {
-  color: var(--text-h);
-  font-weight: 900;
-  font-size: var(--font-md);
-  line-height: 1.2;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  font: 500 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #0a0a0a;
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sub {
-  color: var(--text);
-  font-size: var(--font-xs);
+  font: 500 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #4a5565;
 }
 
 .price {
-  color: var(--text-h);
-  font-weight: 900;
+  font: 500 18px/27px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #0a0a0a;
 }
 
-.footer {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  border-top: 1px solid var(--border);
-  background: var(--bg);
-  padding: 12px 14px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+.sumPanel {
+  padding-bottom: 24px;
+}
+
+.sumList {
+  display: grid;
   gap: 12px;
 }
 
-.sum {
-  display: grid;
-  gap: 2px;
+.sumRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .sumLabel {
-  font-size: var(--font-xs);
-  color: var(--text);
+  font: 500 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #4a5565;
 }
 
-.sumVal {
-  font-weight: 900;
-  color: var(--text-h);
+.sumValue {
+  font: 500 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #0a0a0a;
 }
 
-@media (min-width: 920px) {
-  .main {
-    max-width: 1120px;
-    margin: 0 auto;
-    width: 100%;
-  }
+.sumValue.discount {
+  color: #e7000b;
+}
 
-  .footer {
-    max-width: 1120px;
-    margin: 0 auto;
-    left: 50%;
-    transform: translateX(-50%);
-    border-left: 1px solid var(--border);
-    border-right: 1px solid var(--border);
-  }
+.sumDivider {
+  height: 1px;
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.sumTotalLabel {
+  font: 500 20px/28px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #0a0a0a;
+}
+
+.sumTotalVal {
+  font: 400 30px/36px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #e7000b;
+}
+
+.payBtn {
+  margin-top: 16px;
+  width: 100%;
+  height: 56px;
+  border-radius: 14px;
+  border: 0;
+  background: #9810fa;
+  color: #ffffff;
+  cursor: pointer;
+  font: 500 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+
+.payBtn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 </style>
