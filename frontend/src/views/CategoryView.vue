@@ -162,7 +162,7 @@ const load = async () => {
     id: String(x.id ?? ''),
     title: String(x.name ?? '商品'),
     price: Number(x.price ?? 0),
-    cover: coverSvg(String(x.name ?? '商品'), tone),
+    cover: `/product_${x.id ?? ''}.jpg`,
     tags: (() => {
       const tSet = new Set<string>()
       const pushTag = (v: any) => {

@@ -307,7 +307,7 @@ const load = async () => {
       id: String(x.id ?? id.value),
       title: name,
       desc: String(x.description ?? 'A17 Pro芯片，钛金属设计，5倍光学变焦，全新Action按钮'),
-      media: media.length ? media : [productImgUrl],
+      media: media.length ? media : [`/product_${x.id ?? id.value}.jpg`],
       rating: Number.isFinite(Number(x.rating)) ? Number(x.rating) : 4.9,
       sold: Number.isFinite(Number(x.sold)) ? Number(x.sold) : 159,
       activityLabel: typeof x.activityLabel === 'string' && x.activityLabel.trim() ? x.activityLabel : '限时直降500',

@@ -116,7 +116,7 @@ const load = async () => {
         id,
         title: name,
         price,
-        cover: coverSvg(name, '#0ea5e9'),
+        cover: `/product_${id}.jpg`,
         tags: [],
         rating: 4.5,
         sales: 0,
