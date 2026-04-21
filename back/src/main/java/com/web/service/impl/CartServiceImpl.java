@@ -22,8 +22,8 @@ public class CartServiceImpl implements CartService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public boolean addCartItem(Long userId, Long productId, Integer quantity) {
-        CartItem existing = cartItemMapper.getByUserIdAndProductId(userId, productId);
+    public boolean addCartItem(Long userId, Long productId, Long skuId, Integer quantity) {
+        CartItem existing = cartItemMapper.getByUserIdAndProductId(userId, productId, skuId);
         if (existing != null) {
             existing.setQuantity(existing.getQuantity() + quantity);
             return cartItemMapper.update(existing) > 0;
@@ -31,6 +31,7 @@ public class CartServiceImpl implements CartService {
             CartItem item = new CartItem();
             item.setUserId(userId);
             item.setProductId(productId);
+            item.setSkuId(skuId);
             item.setQuantity(quantity);
             item.setChecked(1);
             return cartItemMapper.insert(item) > 0;

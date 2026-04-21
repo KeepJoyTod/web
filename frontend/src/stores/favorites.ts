@@ -1,7 +1,6 @@
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-
-import iphoneCoverUrl from '../assets/figma/favorites/product-iphone.png'
+import { api } from '../lib/api'
 
 export type FavoriteItem = {
   favId: string
@@ -12,81 +11,81 @@ export type FavoriteItem = {
   oldPrice?: number
   rating: number
   sold: number
-  tags: string[]
+  tags: string[] | string
   promo?: string
 }
 
-type FavoritesSnapshotV1 = {
-  v: 1
-  items: FavoriteItem[]
-}
-
-const STORAGE_KEY = 'favorites:v1'
-
-const readSnapshot = (): FavoritesSnapshotV1 => {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw)
-      return {
-        v: 1,
-        items: [
-          {
-            favId: `fav_${Date.now().toString(16)}`,
-            productId: 'p_iphone_15_pro_max',
-            title: 'iPhone 15 Pro Max',
-            cover: iphoneCoverUrl,
-            price: 9999,
-            oldPrice: 10499,
-            rating: 4.9,
-            sold: 6595,
-            tags: ['热卖', '新品'],
-            promo: '限时直降500',
-          },
-        ],
-      }
-    const parsed = JSON.parse(raw) as FavoritesSnapshotV1
-    if (parsed?.v !== 1) return { v: 1, items: [] }
-    return { v: 1, items: Array.isArray(parsed.items) ? parsed.items : [] }
-  } catch {
-    return { v: 1, items: [] }
-  }
-}
-
-const uid = () => `fav_${Math.random().toString(16).slice(2)}_${Date.now().toString(16)}`
-
 export const useFavoritesStore = defineStore('favorites', () => {
-  const snapshot = ref<FavoritesSnapshotV1>(readSnapshot())
+  const items = ref<FavoriteItem[]>([])
+  const loading = ref(false)
 
-  const items = computed(() => snapshot.value.items)
-  const count = computed(() => snapshot.value.items.length)
+  const count = computed(() => items.value.length)
 
-  const add = (input: Omit<FavoriteItem, 'favId'>) => {
-    const existed = snapshot.value.items.find((x) => x.productId === input.productId)
-    if (existed) return
-    snapshot.value.items = [{ ...input, favId: uid() }, ...snapshot.value.items]
+  const fetch = async () => {
+    loading.value = true
+    try {
+      const res = await api.get('/v1/favorites')
+      const data = res.data?.data || []
+      // 处理 tags，如果是字符串则转为数组
+      items.value = data.map((item: any) => ({
+        ...item,
+        tags: typeof item.tags === 'string' ? JSON.parse(item.tags) : item.tags
+      }))
+    } catch (error) {
+      console.error('Failed to fetch favorites:', error)
+    } finally {
+      loading.value = false
+    }
   }
 
-  const remove = (favId: string) => {
-    snapshot.value.items = snapshot.value.items.filter((x) => x.favId !== favId)
+  const add = async (input: { productId: string }) => {
+    try {
+      await api.post('/v1/favorites', { productId: input.productId })
+      await fetch()
+    } catch (error) {
+      console.error('Failed to add favorite:', error)
+      throw error
+    }
   }
 
-  const removeMany = (favIds: string[]) => {
-    const set = new Set(favIds)
-    snapshot.value.items = snapshot.value.items.filter((x) => !set.has(x.favId))
+  const remove = async (favId: string) => {
+    try {
+      await api.delete(`/v1/favorites/${favId}`)
+      items.value = items.value.filter((x) => x.favId.toString() !== favId.toString())
+    } catch (error) {
+      console.error('Failed to remove favorite:', error)
+      throw error
+    }
+  }
+
+  const removeByProductId = async (productId: string) => {
+    try {
+      await api.delete(`/v1/favorites/product/${productId}`)
+      await fetch()
+    } catch (error) {
+      console.error('Failed to remove favorite by product id:', error)
+      throw error
+    }
+  }
+
+  const removeMany = async (favIds: string[]) => {
+    try {
+      await api.delete('/v1/favorites/bulk', { data: { favIds } })
+      const set = new Set(favIds.map(id => id.toString()))
+      items.value = items.value.filter((x) => !set.has(x.favId.toString()))
+    } catch (error) {
+      console.error('Failed to remove many favorites:', error)
+      throw error
+    }
   }
 
   const clear = () => {
-    snapshot.value.items = []
+    items.value = []
   }
 
-  watch(
-    snapshot,
-    (v) => {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(v))
-    },
-    { deep: true },
-  )
+  const isFavorite = (productId: string) => {
+    return items.value.some(x => x.productId.toString() === productId.toString())
+  }
 
-  return { items, count, add, remove, removeMany, clear }
+  return { items, count, loading, fetch, add, remove, removeByProductId, removeMany, clear, isFavorite }
 })
-

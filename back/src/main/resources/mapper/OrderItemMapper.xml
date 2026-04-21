@@ -8,10 +8,10 @@
     </select>
 
     <insert id="insertBatch">
-        INSERT INTO order_items(order_id, product_id, product_name, price, quantity, total_amount, create_time, update_time)
+        INSERT INTO order_items(order_id, product_id, sku_id, product_name, price, quantity, total_amount, product_image, create_time, update_time)
         VALUES
         <foreach collection="list" item="item" separator=",">
-            (#{item.orderId}, #{item.productId}, #{item.productName}, #{item.price}, #{item.quantity}, #{item.totalAmount}, NOW(), NOW())
+            (#{item.orderId}, #{item.productId}, #{item.skuId}, #{item.productName}, #{item.price}, #{item.quantity}, #{item.totalAmount}, #{item.productImage}, NOW(), NOW())
         </foreach>
     </insert>
 

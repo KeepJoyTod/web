@@ -16,6 +16,7 @@ public class Review {
     private Integer rating;
     private String content;
     private String images;
+    private String nickname; // 用户昵称
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
 }

@@ -46,7 +46,7 @@ const submit = async () => {
   submitting.value = true
   try {
     await new Promise((r) => window.setTimeout(r, 450))
-    const id = aftersales.apply({
+    const id = await aftersales.apply({
       orderId: orderId.value,
       orderItemId: orderItemId.value,
       type: type.value,

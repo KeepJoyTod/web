@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import UiEmptyState from '../components/ui/UiEmptyState.vue'
@@ -17,6 +17,10 @@ const router = useRouter()
 const favorites = useFavoritesStore()
 const cart = useCartStore()
 const toast = useToastStore()
+
+onMounted(() => {
+  favorites.fetch()
+})
 
 const selected = ref<Set<string>>(new Set())
 
@@ -80,7 +84,7 @@ const bulkRemove = () => {
   if (selected.value.size === 0) return
   favorites.removeMany([...selected.value])
   selected.value = new Set()
-  toast.push({ type: 'info', message: '已批量移除' })
+  toast.push({ type: 'info', message: '已移除' })
 }
 </script>
 
@@ -111,17 +115,17 @@ const bulkRemove = () => {
         @action="goBrowse"
       />
 
-      <div v-else class="bulkBar" aria-label="批量操作">
+      <div v-else class="bulkBar" aria-label="操作">
         <button class="selectAll" type="button" @click="toggleAll">
           <span class="checkbox" :class="{ on: allSelected }" aria-hidden="true"></span>
           <span>全选</span>
         </button>
         <div class="bulkActions">
           <button class="bulkAdd" type="button" :disabled="selectedCount === 0" @click="bulkAdd">
-            批量加购 ({{ selectedCount }})
+            加购 ({{ selectedCount }})
           </button>
           <button class="bulkRemove" type="button" :disabled="selectedCount === 0" @click="bulkRemove">
-            批量移除 ({{ selectedCount }})
+            移除 ({{ selectedCount }})
           </button>
         </div>
       </div>
@@ -188,7 +192,7 @@ const bulkRemove = () => {
 <style scoped>
 .page {
   min-height: 100svh;
-  background: #f9fafb;
+  background: var(--bg);
 }
 
 .main {
@@ -209,7 +213,7 @@ const bulkRemove = () => {
   align-items: center;
   gap: 8px;
   font: 500 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #364153;
+  color: var(--text);
 }
 
 .backIcon {
@@ -244,12 +248,12 @@ const bulkRemove = () => {
 .h1 {
   margin: 0;
   font: 700 30px/36px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #0a0a0a;
+  color: var(--text-h);
 }
 
 .sub {
   font: 400 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #4a5565;
+  color: var(--text);
 }
 
 .browseBtn {
@@ -258,7 +262,7 @@ const bulkRemove = () => {
   border: 0;
   border-radius: 10px;
   cursor: pointer;
-  background: linear-gradient(90deg, rgba(152, 16, 250, 1) 0%, rgba(173, 70, 255, 1) 100%);
+  background: var(--accent);
   color: #ffffff;
   font: 400 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
@@ -266,7 +270,8 @@ const bulkRemove = () => {
 .bulkBar {
   height: 70px;
   border-radius: 14px;
-  background: #ffffff;
+  background: var(--bg);
+  border: 1px solid var(--border);
   padding: 16px;
   display: flex;
   justify-content: space-between;
@@ -283,22 +288,22 @@ const bulkRemove = () => {
   align-items: center;
   gap: 8px;
   font: 500 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #364153;
+  color: var(--text);
 }
 
 .checkbox {
   width: 16px;
   height: 16px;
   border-radius: 4px;
-  border: 2px solid #d1d5dc;
-  background: #ffffff;
+  border: 2px solid var(--border);
+  background: var(--bg);
   position: relative;
   flex: 0 0 auto;
 }
 
 .checkbox.on {
-  border-color: #9810fa;
-  background: #9810fa;
+  border-color: var(--accent);
+  background: var(--accent);
 }
 
 .checkbox.on::after {
@@ -331,14 +336,14 @@ const bulkRemove = () => {
 
 .bulkAdd {
   border: 0;
-  background: linear-gradient(90deg, rgba(152, 16, 250, 1) 0%, rgba(173, 70, 255, 1) 100%);
+  background: var(--accent);
   color: #ffffff;
 }
 
 .bulkRemove {
-  border: 1px solid #d1d5dc;
-  background: #ffffff;
-  color: #364153;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
 }
 
 .bulkAdd:disabled,
@@ -355,8 +360,8 @@ const bulkRemove = () => {
 
 .card {
   border-radius: 14px;
-  background: #ffffff;
-  border: 2px solid #f3f4f6;
+  background: var(--bg);
+  border: 1px solid var(--border);
   padding: 2px;
   overflow: hidden;
   display: grid;
@@ -391,8 +396,8 @@ const bulkRemove = () => {
   width: 34px;
   height: 34px;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: color-mix(in srgb, var(--bg) 90%, transparent);
+  border: 1px solid var(--border);
   display: grid;
   place-items: center;
   cursor: pointer;
@@ -413,7 +418,7 @@ const bulkRemove = () => {
   width: 40px;
   height: 24px;
   border-radius: 9999px;
-  background: linear-gradient(90deg, rgba(251, 44, 54, 1) 0%, rgba(246, 51, 154, 1) 100%);
+  background: var(--accent);
   color: #ffffff;
   display: inline-flex;
   align-items: center;
@@ -428,7 +433,7 @@ const bulkRemove = () => {
   cursor: pointer;
   text-align: left;
   font: 500 18px/27px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #0a0a0a;
+  color: var(--text-h);
 }
 
 .meta {
@@ -451,17 +456,17 @@ const bulkRemove = () => {
 
 .ratingVal {
   font: 500 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #0a0a0a;
+  color: var(--text-h);
 }
 
 .sep {
   font: 400 12px/16px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #99a1af;
+  color: var(--border);
 }
 
 .sold {
   font: 400 12px/16px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #6a7282;
+  color: var(--text);
 }
 
 .prices {
@@ -473,20 +478,20 @@ const bulkRemove = () => {
 
 .price {
   font: 700 24px/32px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #e7000b;
+  color: var(--danger);
 }
 
 .old {
   font: 400 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #99a1af;
+  color: var(--text);
   text-decoration: line-through;
 }
 
 .promo {
   padding: 4px 8px;
   border-radius: 4px;
-  background: #fef2f2;
-  color: #e7000b;
+  background: var(--danger-bg);
+  color: var(--danger);
   font: 400 12px/16px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
   width: fit-content;
 }
@@ -502,7 +507,7 @@ const bulkRemove = () => {
   border: 0;
   border-radius: 10px;
   cursor: pointer;
-  background: linear-gradient(90deg, rgba(152, 16, 250, 1) 0%, rgba(173, 70, 255, 1) 100%);
+  background: var(--accent);
   color: #ffffff;
   display: inline-flex;
   align-items: center;
@@ -519,8 +524,8 @@ const bulkRemove = () => {
 .removeBtn {
   width: 42px;
   border-radius: 10px;
-  border: 1px solid #d1d5dc;
-  background: #ffffff;
+  border: 1px solid var(--border);
+  background: var(--bg);
   cursor: pointer;
   padding: 10px 13px;
 }
@@ -533,7 +538,7 @@ const bulkRemove = () => {
 
 .tips {
   border-radius: 16px;
-  background: #faf5ff;
+  background: var(--accent-bg);
   padding: 24px 24px 0;
   display: grid;
   gap: 8px;
@@ -542,7 +547,7 @@ const bulkRemove = () => {
 .tipsTitle {
   height: 27px;
   font: 500 18px/27px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #59168b;
+  color: var(--accent);
 }
 
 .tipsList {
@@ -555,7 +560,7 @@ const bulkRemove = () => {
 
 .tip {
   font: 400 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #8200db;
+  color: var(--text);
 }
 </style>
 

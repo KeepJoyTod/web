@@ -125,7 +125,7 @@ const saveAdd = () => {
   const phone = addPhone.value.trim()
   const region = addRegion.value.trim()
   const detail = addDetail.value.trim()
-  if (!receiver || !/^1\\d{10}$/.test(phone) || !region || !detail) {
+  if (!receiver || !/^1\d{10}$/.test(phone) || !region || !detail) {
     toast.push({ type: 'error', message: '请完整填写收货信息' })
     return
   }
@@ -168,7 +168,8 @@ const submit = async () => {
     const mappedId = orders.upsertFromBackend(data)
     const backendTotal = Number(data.totalAmount ?? itemsAmount.value)
     const backendPayable = Number(data.payAmount ?? payable.value)
-    const backendDiscount = Math.max(0, (Number.isFinite(backendTotal) ? backendTotal : 0) - (Number.isFinite(backendPayable) ? backendPayable : 0))
+    const backendShipping = Number(data.shippingAmount ?? shipping.value)
+    const backendDiscount = Math.max(0, (Number.isFinite(backendTotal) ? backendTotal : 0) + (Number.isFinite(backendShipping) ? backendShipping : 0) - (Number.isFinite(backendPayable) ? backendPayable : 0))
 
     notifications.push({
       type: 'order_created',
@@ -182,7 +183,7 @@ const submit = async () => {
       itemsCount: cart.count,
       itemsAmount: backendTotal,
       discount: backendDiscount,
-      shipping: 0,
+      shipping: backendShipping,
       payable: backendPayable,
     })
 
@@ -190,7 +191,8 @@ const submit = async () => {
       orderId: mappedId,
       itemsAmount: backendTotal,
       discount: backendDiscount,
-      shipping: 0,
+      shipping: backendShipping,
+      payable: backendPayable,
     })
     await router.push({ name: 'cashier', query: { orderId: mappedId } })
   } catch (e) {
@@ -364,7 +366,7 @@ const submit = async () => {
 <style scoped>
 .page {
   min-height: 100svh;
-  background: #f9fafb;
+  background: var(--bg);
 }
 
 .main {
@@ -394,7 +396,7 @@ const submit = async () => {
   padding: 0;
   cursor: pointer;
   font: 400 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #4a5565;
+  color: var(--text);
 }
 
 .backIcon {
@@ -405,14 +407,15 @@ const submit = async () => {
 .h1 {
   margin: 0;
   font: 600 30px/36px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #0a0a0a;
+  color: var(--text-h);
 }
 
 .panel {
   width: min(864px, 100%);
   margin: 0 auto;
-  background: #ffffff;
+  background: var(--bg);
   border-radius: 10px;
+  border: 1px solid var(--border);
   padding: 24px 24px 0;
   display: grid;
   gap: 16px;
@@ -431,7 +434,7 @@ const submit = async () => {
 
 .panelTitle {
   font: 500 20px/28px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #0a0a0a;
+  color: var(--text-h);
 }
 
 .addrList {
@@ -445,15 +448,15 @@ const submit = async () => {
   align-items: flex-start;
   gap: 12px;
   border-radius: 10px;
-  border: 2px solid #e5e7eb;
-  background: #ffffff;
+  border: 2px solid var(--border);
+  background: var(--bg);
   padding: 16px 24px;
   cursor: pointer;
 }
 
 .addr.on {
-  border-color: #ad46ff;
-  background: #faf5ff;
+  border-color: var(--accent);
+  background: var(--accent-bg);
 }
 
 .radio {
@@ -477,25 +480,25 @@ const submit = async () => {
 .addrName,
 .addrPhone {
   font: 500 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #0a0a0a;
+  color: var(--text-h);
 }
 
 .addrPhone {
-  color: #4a5565;
+  color: var(--text);
 }
 
 .badge {
   height: 20px;
   padding: 0 8px;
   border-radius: 4px;
-  background: #f3e8ff;
-  color: #9810fa;
+  background: var(--accent-bg);
+  color: var(--accent);
   font: 500 12px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 
 .addrLine {
   font: 500 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #4a5565;
+  color: var(--text);
 }
 
 .addLink {
@@ -505,13 +508,13 @@ const submit = async () => {
   text-align: left;
   cursor: pointer;
   font: 500 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #9810fa;
+  color: var(--accent);
 }
 
 .addForm {
   border-radius: 10px;
-  border: 1px solid #e5e7eb;
-  background: #ffffff;
+  border: 1px solid var(--border);
+  background: var(--bg);
   padding: 12px;
   display: grid;
   gap: 12px;
@@ -525,10 +528,10 @@ const submit = async () => {
 .input {
   height: 44px;
   border-radius: 10px;
-  border: 1px solid #d1d5dc;
+  border: 1px solid var(--border);
   padding: 0 12px;
   font: 400 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #0a0a0a;
+  color: var(--text-h);
 }
 
 .formBtns {
@@ -547,14 +550,14 @@ const submit = async () => {
 }
 
 .btnGhost {
-  border: 1px solid #d1d5dc;
-  background: #ffffff;
-  color: #4a5565;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
 }
 
 .btnPrimary {
   border: 0;
-  background: #9810fa;
+  background: var(--accent);
   color: #ffffff;
 }
 
@@ -574,17 +577,17 @@ const submit = async () => {
 
 .shipName {
   font: 500 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #0a0a0a;
+  color: var(--text-h);
 }
 
 .shipDesc {
   font: 500 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #4a5565;
+  color: var(--text);
 }
 
 .shipFee {
   font: 500 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #00a63e;
+  color: var(--success);
 }
 
 .invoiceRow {
@@ -600,7 +603,7 @@ const submit = async () => {
   gap: 12px;
   cursor: pointer;
   font: 500 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #0a0a0a;
+  color: var(--text-h);
 }
 
 .invoiceInput {
@@ -618,15 +621,15 @@ const submit = async () => {
   align-items: center;
   gap: 12px;
   border-radius: 10px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border);
   padding: 12px;
   cursor: pointer;
-  background: #ffffff;
+  background: var(--bg);
 }
 
 .coupon.on {
-  border-color: #ad46ff;
-  background: #faf5ff;
+  border-color: var(--accent);
+  background: var(--accent-bg);
 }
 
 .couponBody {
@@ -636,17 +639,17 @@ const submit = async () => {
 
 .couponTitle {
   font: 500 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #0a0a0a;
+  color: var(--text-h);
 }
 
 .couponCode {
   font: 500 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #4a5565;
+  color: var(--text);
 }
 
 .couponVal {
   font: 500 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #e7000b;
+  color: var(--danger);
 }
 
 .items {
@@ -667,7 +670,7 @@ const submit = async () => {
   height: 64px;
   border-radius: 10px;
   object-fit: cover;
-  background: #f3f4f6;
+  background: var(--code-bg);
 }
 
 .meta {
@@ -677,7 +680,7 @@ const submit = async () => {
 
 .name {
   font: 500 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #0a0a0a;
+  color: var(--text-h);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -685,12 +688,12 @@ const submit = async () => {
 
 .sub {
   font: 500 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #4a5565;
+  color: var(--text);
 }
 
 .price {
   font: 500 18px/27px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #0a0a0a;
+  color: var(--text-h);
 }
 
 .sumPanel {
@@ -710,31 +713,31 @@ const submit = async () => {
 
 .sumLabel {
   font: 500 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #4a5565;
+  color: var(--text);
 }
 
 .sumValue {
   font: 500 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #0a0a0a;
+  color: var(--text-h);
 }
 
 .sumValue.discount {
-  color: #e7000b;
+  color: var(--danger);
 }
 
 .sumDivider {
   height: 1px;
-  background: rgba(0, 0, 0, 0.1);
+  background: var(--border);
 }
 
 .sumTotalLabel {
   font: 500 20px/28px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #0a0a0a;
+  color: var(--text-h);
 }
 
 .sumTotalVal {
   font: 400 30px/36px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #e7000b;
+  color: var(--danger);
 }
 
 .payBtn {
@@ -743,7 +746,7 @@ const submit = async () => {
   height: 56px;
   border-radius: 14px;
   border: 0;
-  background: #9810fa;
+  background: var(--accent);
   color: #ffffff;
   cursor: pointer;
   font: 500 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;

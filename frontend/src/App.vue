@@ -1,12 +1,31 @@
 <script setup lang="ts">
 import { RouterView, useRoute } from 'vue-router'
-import { computed } from 'vue'
+import { computed, onMounted, watch } from 'vue'
+import { useAuthStore } from './stores/auth'
+import { useFavoritesStore } from './stores/favorites'
 
 import BottomNav from './components/BottomNav.vue'
 import UiToastHost from './components/ui/UiToastHost.vue'
 
 const route = useRoute()
+const auth = useAuthStore()
+const favorites = useFavoritesStore()
+
 const showNav = computed(() => route.meta?.hideNav !== true)
+
+onMounted(() => {
+  if (auth.isLoggedIn) {
+    favorites.fetch()
+  }
+})
+
+watch(() => auth.isLoggedIn, (loggedIn) => {
+  if (loggedIn) {
+    favorites.fetch()
+  } else {
+    favorites.clear()
+  }
+})
 </script>
 
 <template>

@@ -28,7 +28,10 @@ const orderId = computed(() => {
 })
 
 const status = computed(() => orderDraft.paymentStatus)
-const payable = computed(() => orderDraft.draft.amounts?.payable ?? 0)
+const payable = computed(() => {
+  if (orderDraft.orderId !== orderId.value) return 0
+  return orderDraft.draft.amounts?.payable ?? 0
+})
 const priceFmt = new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' })
 
 const channel = computed(() => {
@@ -48,7 +51,7 @@ const loading = ref(false)
 const lastTradeId = ref<string>('')
 let timer: number | null = null
 
-const canShow = computed(() => Boolean(orderId.value) && orderDraft.orderId === orderId.value)
+const canShow = computed(() => Boolean(orderId.value))
 
 const stop = () => {
   polling.value = false
@@ -60,29 +63,19 @@ const stop = () => {
 
 const syncOrder = async () => {
   if (!orderId.value) return
+  loading.value = true
   try {
     const res = await api.get(`/v1/orders/${encodeURIComponent(orderId.value)}`)
     const data = res.data?.data
     if (data) {
       orders.upsertFromBackend(data)
-      const total = Number(data.totalAmount ?? 0)
-      const pay = Number(data.payAmount ?? 0)
-      if (orderDraft.draft.amounts) {
-        orderDraft.draft.amounts.items = Number.isFinite(total) ? total : orderDraft.draft.amounts.items
-        orderDraft.draft.amounts.payable = Number.isFinite(pay) ? pay : orderDraft.draft.amounts.payable
-        orderDraft.draft.amounts.discount = Math.max(0, (Number.isFinite(total) ? total : 0) - (Number.isFinite(pay) ? pay : 0))
-        orderDraft.draft.amounts.shipping = 0
-      }
-      const st = data.status
-      if (st === 1 || st === 'Paid') {
-        const paidAt = new Date().toISOString()
-        orderDraft.markPaid(paidAt)
-      }
-      if (st === 4 || st === 'Cancelled') {
-        orderDraft.markFailed('订单已取消')
-      }
+      orderDraft.loadFromBackend(data)
     }
-  } catch {}
+  } catch (e) {
+    console.error('Failed to sync order:', e)
+  } finally {
+    loading.value = false
+  }
 }
 
 const refreshPaymentStatus = async () => {
@@ -167,9 +160,13 @@ const retry = () => {
   startPayment().catch(() => {})
 }
 
-onMounted(() => {
+onMounted(async () => {
   if (!canShow.value) return
-  syncOrder().catch(() => {})
+  if (orderDraft.orderId !== orderId.value) {
+    await syncOrder()
+  } else {
+    syncOrder().catch(() => {})
+  }
   if (orderDraft.paymentStatus === 'PROCESSING') startPolling()
   refreshPaymentStatus().catch(() => {})
   if (autoPay.value && orderDraft.paymentStatus === 'INIT') {
@@ -192,12 +189,16 @@ onBeforeUnmount(() => {
 
     <main class="main" aria-live="polite">
       <UiEmptyState
-        v-if="!canShow"
+        v-if="!canShow || (!loading && orderDraft.orderId !== orderId)"
         title="订单信息缺失"
         desc="请从结算页发起支付"
         action-text="去结算"
         @action="router.push({ name: 'checkout' })"
       />
+
+      <div v-else-if="loading" class="card">
+        正在获取订单信息...
+      </div>
 
       <div v-else class="card">
         <div class="row">

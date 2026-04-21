@@ -1,13 +1,19 @@
 package com.web.service.impl;
 
+import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.json.JSONUtil;
 import com.web.mapper.ProductMapper;
 import com.web.pojo.Product;
+import com.web.pojo.ProductMedia;
+import com.web.pojo.ProductSku;
 import com.web.service.ProductService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class ProductServiceImpl implements ProductService {
@@ -18,6 +24,38 @@ public class ProductServiceImpl implements ProductService {
     @Override
     public Product getProductById(Long id) {
         return productMapper.getById(id);
+    }
+
+    @Override
+    public Map<String, Object> getProductDetail(Long id) {
+        Product product = productMapper.getById(id);
+        if (product == null) return null;
+
+        // 1. 基础属性转 Map
+        Map<String, Object> detail = BeanUtil.beanToMap(product, false, true);
+
+        // 2. 获取多媒体图片列表
+        List<ProductMedia> mediaList = productMapper.getMediaByProductId(id);
+        List<String> mediaUrls = mediaList.stream()
+                .map(ProductMedia::getUrl)
+                .collect(Collectors.toList());
+        detail.put("media", mediaUrls);
+
+        // 3. 获取 SKU 列表并解析属性 JSON
+        List<ProductSku> skus = productMapper.getSkusByProductId(id);
+        List<Map<String, Object>> skuMaps = skus.stream().map(sku -> {
+            Map<String, Object> m = BeanUtil.beanToMap(sku, false, true);
+            // 将数据库存储的 JSON 字符串转为 Map 对象
+            if (sku.getAttrs() != null && !sku.getAttrs().isEmpty()) {
+                m.put("attrs", JSONUtil.parseObj(sku.getAttrs()));
+            } else {
+                m.put("attrs", Map.of());
+            }
+            return m;
+        }).collect(Collectors.toList());
+        detail.put("skus", skuMaps);
+
+        return detail;
     }
 
     @Override

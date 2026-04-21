@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.web.mapper.FavoriteMapper">
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO favorites (user_id, product_id)
+        VALUES (#{userId}, #{productId})
+    </insert>
+
+    <delete id="deleteById">
+        DELETE FROM favorites
+        WHERE user_id = #{userId} AND id = #{favId}
+    </delete>
+
+    <delete id="deleteByProductId">
+        DELETE FROM favorites
+        WHERE user_id = #{userId} AND product_id = #{productId}
+    </delete>
+
+    <delete id="deleteByIds">
+        DELETE FROM favorites
+        WHERE user_id = #{userId} AND id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+    <select id="findOne" resultType="com.web.pojo.Favorite">
+        SELECT * FROM favorites
+        WHERE user_id = #{userId} AND product_id = #{productId}
+        LIMIT 1
+    </select>
+
+    <select id="listByUserId" resultType="map">
+        SELECT 
+            f.id as favId,
+            f.product_id as productId,
+            p.name as title,
+            p.price,
+            p.original_price as oldPrice,
+            p.rating,
+            p.sold,
+            p.tags,
+            p.activity_label as promo,
+            (SELECT url FROM product_media WHERE product_id = p.id ORDER BY sort_order ASC LIMIT 1) as cover
+        FROM favorites f
+        JOIN products p ON f.product_id = p.id
+        WHERE f.user_id = #{userId}
+        ORDER BY f.create_time DESC
+    </select>
+
+</mapper>

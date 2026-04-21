@@ -4,6 +4,8 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { useCartStore } from '../stores/cart'
 import { useToastStore } from '../stores/toast'
+import { useAuthStore } from '../stores/auth'
+import { useFavoritesStore } from '../stores/favorites'
 import { useReviewsStore, type Review } from '../stores/reviews'
 import { api } from '../lib/api'
 
@@ -40,12 +42,37 @@ type Product = {
 
 const router = useRouter()
 const route = useRoute()
+const auth = useAuthStore()
 const cart = useCartStore()
+const favorites = useFavoritesStore()
 const toast = useToastStore()
 const reviewsStore = useReviewsStore()
 
+const isFav = computed(() => favorites.isFavorite(id.value))
+
+const toggleFavorite = async () => {
+  if (!auth.user) {
+    toast.push({ type: 'error', message: '请先登录' })
+    router.push({ name: 'login' })
+    return
+  }
+  
+  try {
+    if (isFav.value) {
+      await favorites.removeByProductId(id.value)
+      toast.push({ type: 'info', message: '已取消收藏' })
+    } else {
+      await favorites.add({ productId: id.value })
+      toast.push({ type: 'success', message: '收藏成功' })
+    }
+  } catch (e) {
+    toast.push({ type: 'error', message: '操作失败' })
+  }
+}
+
 const state = ref<LoadState>('loading')
 const product = ref<Product | null>(null)
+const currentMediaIndex = ref(0)
 const selected = ref<Record<string, string>>({})
 const qty = ref(1)
 const submitting = ref(false)
@@ -105,9 +132,11 @@ const filteredReviews = computed(() => {
 
 const visibleReviews = computed(() => (reviewsExpanded.value ? filteredReviews.value : filteredReviews.value.slice(0, 3)))
 
-const myReview = computed<Review | null>(
-  () => productReviews.value.find((r) => r.orderId === 'me' || r.orderId === 'self') ?? null,
-)
+const myReview = computed<Review | null>(() => {
+  const currentUserId = auth.user?.id
+  if (!currentUserId) return null
+  return productReviews.value.find((r) => String(r.userId) === String(currentUserId)) ?? null
+})
 const otherReviewsCount = computed(() => {
   const mine = myReview.value
   if (!mine) return filteredReviews.value.length
@@ -239,7 +268,14 @@ const isOptionDisabled = (key: string, value: string) => {
 
 const selectOption = (key: string, value: string) => {
   if (isOptionDisabled(key, value)) return
-  selected.value = { ...selected.value, [key]: value }
+  // 如果点击已选中的，则取消选择
+  if (selected.value[key] === value) {
+    const next = { ...selected.value }
+    delete next[key]
+    selected.value = next
+  } else {
+    selected.value = { ...selected.value, [key]: value }
+  }
   qty.value = 1
 }
 
@@ -290,34 +326,35 @@ const load = async () => {
       return
     }
 
-    const name = String(x.name ?? 'iPhone 15 Pro Max')
-    const price = Number(x.price ?? 9999)
-    const originalPrice = Number.isFinite(Number(x.originalPrice)) ? Number(x.originalPrice) : price + 500
-
-    const media =
-      Array.isArray(x.media) && x.media.every((m: unknown) => typeof m === 'string') ? (x.media as string[]) : []
-
-    const figmaSkus: Sku[] = [
-      { id: 'natural-256', attrs: { 规格: '原色钛金属 / 256GB' }, price, stock: 50 },
-      { id: 'black-256', attrs: { 规格: '黑色钛金属 / 256GB' }, price, stock: 30 },
-      { id: 'natural-512', attrs: { 规格: '原色钛金属 / 512GB' }, price, stock: 20 },
-    ]
+    const name = String(x.name ?? '商品')
+    const price = Number(x.price ?? 0)
+    const originalPrice = Number.isFinite(Number(x.originalPrice)) ? Number(x.originalPrice) : price
 
     const p: Product = {
       id: String(x.id ?? id.value),
       title: name,
-      desc: String(x.description ?? 'A17 Pro芯片，钛金属设计，5倍光学变焦，全新Action按钮'),
-      media: media.length ? media : [`/product_${x.id ?? id.value}.jpg`],
-      rating: Number.isFinite(Number(x.rating)) ? Number(x.rating) : 4.9,
-      sold: Number.isFinite(Number(x.sold)) ? Number(x.sold) : 159,
-      activityLabel: typeof x.activityLabel === 'string' && x.activityLabel.trim() ? x.activityLabel : '限时直降500',
+      desc: String(x.description ?? ''),
+      // 如果后端有媒体图片则使用，否则使用默认占位图
+      media: x.media && x.media.length > 0 ? x.media : [productImgUrl],
+      rating: Number.isFinite(Number(x.rating)) ? Number(x.rating) : 4.5,
+      sold: Number.isFinite(Number(x.sold)) ? Number(x.sold) : 0,
+      activityLabel: typeof x.activityLabel === 'string' && x.activityLabel.trim() ? x.activityLabel : '',
       originalPrice,
-      skus: Array.isArray(x.skus) ? (x.skus as Sku[]) : figmaSkus,
+      // 如果后端有 SKUs 则使用，否则使用基础价格和库存作为默认 SKU
+      skus: x.skus && x.skus.length > 0 
+        ? x.skus.map((s: any) => ({
+            id: String(s.id),
+            attrs: s.attrs || {},
+            price: Number(s.price),
+            stock: Number(s.stock)
+          }))
+        : [{ id: 'default', attrs: { '规格': '默认' }, price, stock: Number(x.stock ?? 0) }],
     }
 
     product.value = p
-    const first = p.skus.find((s) => s.stock > 0) ?? p.skus[0]
-    selected.value = { ...first.attrs }
+    currentMediaIndex.value = 0
+    // 取消默认全部选择，改为默认不选，让用户手动选择
+    selected.value = {}
     qty.value = 1
     state.value = 'ready'
     await fetchReviews(id.value)
@@ -333,6 +370,23 @@ onMounted(() => {
 
 <template>
   <div class="page">
+    <header class="headerSticky">
+      <div class="headerContent">
+        <button class="backBtn" type="button" aria-label="返回" @click="router.back()">
+          <img class="backIcon" :src="backIconUrl" alt="" aria-hidden="true" />
+          <span class="backText">返回</span>
+        </button>
+
+        <nav v-if="product" class="crumbs" aria-label="面包屑">
+          <button class="crumbLink" type="button" @click="router.push({ name: 'home' })">首页</button>
+          <span class="crumbSep" aria-hidden="true">/</span>
+          <button class="crumbLink" type="button" @click="router.push({ name: 'category' })">商品</button>
+          <span class="crumbSep" aria-hidden="true">/</span>
+          <span class="crumbCurrent">{{ product.title }}</span>
+        </nav>
+      </div>
+    </header>
+
     <main class="content" aria-live="polite">
       <div v-if="state === 'loading'" class="skeletonHero" role="status" aria-label="加载中"></div>
 
@@ -347,34 +401,24 @@ onMounted(() => {
       </div>
 
       <div v-else class="wrap">
-        <div class="top">
-          <button class="backBtn" type="button" aria-label="返回" @click="router.back()">
-            <img class="backIcon" :src="backIconUrl" alt="" aria-hidden="true" />
-            <span class="backText">返回</span>
-          </button>
-
-          <nav class="crumbs" aria-label="面包屑">
-            <button class="crumbLink" type="button" @click="router.push({ name: 'home' })">首页</button>
-            <span class="crumbSep" aria-hidden="true">/</span>
-            <button class="crumbLink" type="button" @click="router.push({ name: 'category' })">商品</button>
-            <span class="crumbSep" aria-hidden="true">/</span>
-            <span class="crumbCurrent">{{ product.title }}</span>
-          </nav>
-        </div>
-
         <section class="productCard" aria-label="商品详情">
           <div class="cols">
             <div class="left">
               <div class="hero" aria-label="商品图片">
-                <img class="heroImg" :src="product.media[0]" :alt="product.title" />
+                <img class="heroImg" :src="product.media[currentMediaIndex]" :alt="product.title" />
               </div>
 
               <div class="thumbs" aria-label="图片选择">
-                <button class="thumbBtn on" type="button" aria-label="当前图片">
-                  <img class="thumbImg" :src="product.media[0]" :alt="product.title" />
-                </button>
-                <button class="thumbBtn" type="button" aria-label="备用图片" disabled>
-                  <img class="thumbImg" :src="product.media[0]" :alt="product.title" />
+                <button
+                  v-for="(m, i) in product.media"
+                  :key="i"
+                  class="thumbBtn"
+                  :class="{ on: currentMediaIndex === i }"
+                  type="button"
+                  :aria-label="`图片 ${i + 1}`"
+                  @click="currentMediaIndex = i"
+                >
+                  <img class="thumbImg" :src="m" :alt="product.title" />
                 </button>
               </div>
             </div>
@@ -449,8 +493,8 @@ onMounted(() => {
                   加入购物车
                 </button>
                 <button class="btnBuy" type="button" :disabled="!canSubmit" @click="addToCart(true)">立即购买</button>
-                <button class="btnMore" type="button" aria-label="更多">
-                  <img class="moreIcon" :src="actionIconUrl" alt="" aria-hidden="true" />
+                <button class="btnFav" :class="{ on: isFav }" type="button" aria-label="收藏" @click="toggleFavorite">
+                  <img class="favIcon" :src="starIconUrl" alt="" aria-hidden="true" />
                 </button>
               </div>
             </div>
@@ -563,14 +607,17 @@ onMounted(() => {
 
               <div v-else class="otherList" role="list">
                 <div v-for="r in otherVisibleReviews" :key="r.id" class="otherItem" role="listitem">
-                  <div class="avatar">U</div>
+                  <div class="avatar">{{ r.nickname[0] }}</div>
                   <div class="reviewMain">
                     <div class="reviewMeta">
-                      <div class="reviewName">用户</div>
+                      <div class="reviewName">{{ r.nickname }}</div>
                       <div class="reviewStars">{{ '★★★★★'.slice(0, Math.max(0, Math.min(5, Math.floor(r.rating)))) }}</div>
                       <div class="reviewDate">{{ fmtReviewDate(r.createdAt) }}</div>
                     </div>
                     <div class="reviewText">{{ r.content }}</div>
+                    <div v-if="r.images && r.images.length > 0" class="reviewImgs">
+                      <img v-for="(img, idx) in r.images" :key="idx" :src="img" class="reviewImg" alt="评价图片" />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -643,7 +690,18 @@ onMounted(() => {
   font-size: 13px;
 }
 
-.top {
+.headerSticky {
+  position: sticky;
+  top: 0;
+  background: var(--bg);
+  z-index: 100;
+  border-bottom: 1px solid var(--border);
+}
+
+.headerContent {
+  max-width: 1022px;
+  margin: 0 auto;
+  padding: 16px;
   display: flex;
   align-items: center;
   gap: 24px;
@@ -657,7 +715,7 @@ onMounted(() => {
   background: transparent;
   padding: 0;
   cursor: pointer;
-  color: #4a5565;
+  color: var(--text);
   font: 500 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 
@@ -671,7 +729,7 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   font: 400 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #4a5565;
+  color: var(--text);
   min-width: 0;
 }
 
@@ -680,23 +738,23 @@ onMounted(() => {
   background: transparent;
   padding: 0;
   cursor: pointer;
-  color: #4a5565;
+  color: var(--text);
   font: inherit;
 }
 
 .crumbSep {
-  color: #4a5565;
+  color: var(--text);
 }
 
 .crumbCurrent {
-  color: #4a5565;
+  color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .productCard {
-  background: #ffffff;
+  background: var(--bg);
   border-radius: 10px;
   border: 1px solid var(--border);
   padding: 32px 32px 0;
@@ -713,7 +771,7 @@ onMounted(() => {
 }
 
 .hero {
-  background: #f3f4f6;
+  background: var(--code-bg);
   border-radius: 10px;
   overflow: hidden;
 }
@@ -742,7 +800,7 @@ onMounted(() => {
 }
 
 .thumbBtn.on {
-  border-color: #2b7fff;
+  border-color: var(--accent);
 }
 
 .thumbBtn:disabled {
@@ -768,20 +826,20 @@ onMounted(() => {
   height: 28px;
   padding: 0 12px;
   border-radius: 999px;
-  background: #ffe2e2;
-  color: #e7000b;
+  background: var(--danger-bg);
+  color: var(--danger);
   font: 400 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
   width: fit-content;
 }
 
 .h1 {
   margin: 0;
-  color: #0a0a0a;
+  color: var(--text-h);
   font: 500 30px/36px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 
 .sub {
-  color: #4a5565;
+  color: var(--text);
   font: 400 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 
@@ -804,21 +862,21 @@ onMounted(() => {
 }
 
 .statText {
-  color: #4a5565;
+  color: var(--text);
   font: 400 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 
 .statText.strong {
-  color: #0a0a0a;
+  color: var(--text-h);
 }
 
 .statSep {
-  color: #99a1af;
+  color: var(--border);
   font: 400 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 
 .priceCard {
-  background: #f9fafb;
+  background: var(--code-bg);
   border-radius: 10px;
   padding: 24px 24px 0;
   display: grid;
@@ -828,27 +886,30 @@ onMounted(() => {
 .priceLine {
   display: flex;
   align-items: baseline;
+  flex-wrap: wrap;
   gap: 8px;
-  height: 40px;
+  min-height: 40px;
 }
 
 .priceLabel {
-  color: #4a5565;
+  color: var(--text);
   font: 400 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  flex-shrink: 0;
 }
 
 .priceMain {
-  color: #e7000b;
-  font: 400 36px/40px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: var(--danger);
+  font: 400 clamp(20px, 5vw, 36px)/1.1 Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  word-break: break-all;
 }
 
 .priceOld {
-  color: #6a7282;
+  color: var(--text);
   font: 400 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 
 .blockTitle {
-  color: #0a0a0a;
+  color: var(--text-h);
   font: 500 18px/27px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 
@@ -860,8 +921,8 @@ onMounted(() => {
 
 .skuBtn {
   border-radius: 10px;
-  border: 2px solid #e5e7eb;
-  background: #ffffff;
+  border: 2px solid var(--border);
+  background: var(--bg);
   padding: 14px 14px 2px;
   display: grid;
   gap: 4px;
@@ -870,8 +931,8 @@ onMounted(() => {
 }
 
 .skuBtn.on {
-  background: #eff6ff;
-  border-color: #2b7fff;
+  background: var(--accent-bg);
+  border-color: var(--accent);
 }
 
 .skuBtn.off {
@@ -880,12 +941,12 @@ onMounted(() => {
 }
 
 .skuName {
-  color: #0a0a0a;
+  color: var(--text-h);
   font: 500 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 
 .skuStock {
-  color: #6a7282;
+  color: var(--text);
   font: 500 12px/16px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 
@@ -900,7 +961,7 @@ onMounted(() => {
   width: 130px;
   height: 42px;
   border-radius: 10px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--border);
   display: grid;
   grid-template-columns: 32px 1fr 32px;
   align-items: center;
@@ -932,14 +993,14 @@ onMounted(() => {
   height: 40px;
   display: grid;
   place-items: center;
-  border-left: 1px solid rgba(0, 0, 0, 0.1);
-  border-right: 1px solid rgba(0, 0, 0, 0.1);
-  color: #0a0a0a;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  color: var(--text-h);
   font: 400 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 
 .qtyStock {
-  color: #4a5565;
+  color: var(--text);
   font: 400 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 
@@ -965,17 +1026,46 @@ onMounted(() => {
 }
 
 .btnAdd {
-  background: #ff6900;
+  background: var(--accent);
 }
 
 .btnBuy {
-  background: #fb2c36;
+  background: var(--danger);
 }
 
 .btnAdd:disabled,
 .btnBuy:disabled {
   cursor: not-allowed;
-  opacity: 0.6;
+  opacity: 0.5;
+}
+
+.btnFav {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.btnFav.on {
+  border-color: #fadb14;
+  background: #fffbe6;
+}
+
+.favIcon {
+  width: 24px;
+  height: 24px;
+  filter: grayscale(1);
+  transition: all 0.2s ease;
+}
+
+.btnFav.on .favIcon {
+  filter: none;
 }
 
 .btnIcon {
@@ -987,7 +1077,7 @@ onMounted(() => {
   width: 50px;
   height: 50px;
   border-radius: 10px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--border);
   background: transparent;
   padding: 0;
   display: grid;
@@ -1001,7 +1091,7 @@ onMounted(() => {
 }
 
 .reviewsSection {
-  background: #ffffff;
+  background: var(--bg);
   border-radius: 16px;
   border: 1px solid var(--border);
   padding: 32px;
@@ -1018,7 +1108,7 @@ onMounted(() => {
 
 .reviewsTitle {
   margin: 0;
-  color: #0a0a0a;
+  color: var(--text-h);
   font: 600 24px/32px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 
@@ -1030,7 +1120,7 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  color: #9810fa;
+  color: var(--accent);
   font: 400 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 
@@ -1040,7 +1130,7 @@ onMounted(() => {
 }
 
 .reviewsPanel {
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--border);
   border-radius: 16px;
   padding: 18px 16px;
   display: flex;
@@ -1050,7 +1140,7 @@ onMounted(() => {
 }
 
 .reviewsPanelTitle {
-  color: #364153;
+  color: var(--text);
   font: 400 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 
@@ -1058,7 +1148,7 @@ onMounted(() => {
   height: 36px;
   border-radius: 999px;
   border: 0;
-  background: #9810fa;
+  background: var(--accent);
   color: #ffffff;
   padding: 0 14px;
   cursor: pointer;
@@ -1073,7 +1163,7 @@ onMounted(() => {
 .reviewsSummary {
   border-radius: 16px;
   padding: 24px 24px 0;
-  background: linear-gradient(135deg, rgba(250, 245, 255, 1) 0%, rgba(239, 246, 255, 1) 100%);
+  background: var(--code-bg);
   display: grid;
   gap: 24px;
 }
@@ -1085,7 +1175,7 @@ onMounted(() => {
 }
 
 .summaryScore {
-  color: #9810fa;
+  color: var(--accent);
   font: 600 48px/48px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 
@@ -1095,7 +1185,7 @@ onMounted(() => {
 }
 
 .summaryCount {
-  color: #4a5565;
+  color: var(--text);
   font: 400 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 
@@ -1113,7 +1203,7 @@ onMounted(() => {
 
 .distStar {
   width: 48px;
-  color: #0a0a0a;
+  color: var(--text-h);
   font: 400 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 
@@ -1121,26 +1211,26 @@ onMounted(() => {
   flex: 1;
   height: 8px;
   border-radius: 999px;
-  background: #e5e7eb;
+  background: var(--border);
   overflow: hidden;
 }
 
 .distFill {
   height: 100%;
-  background: #ad46ff;
+  background: var(--accent);
   border-radius: 999px;
 }
 
 .distCount {
   width: 24px;
   text-align: right;
-  color: #4a5565;
+  color: var(--text);
   font: 400 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 
 .distRate {
   margin-top: 8px;
-  color: #4a5565;
+  color: var(--text);
   font: 400 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 
@@ -1156,14 +1246,14 @@ onMounted(() => {
   padding: 0 15px;
   border-radius: 999px;
   border: 0;
-  background: #f3f4f6;
-  color: #364153;
+  background: var(--code-bg);
+  color: var(--text);
   cursor: pointer;
   font: 500 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 
 .tabBtn.on {
-  background: #9810fa;
+  background: var(--accent);
   color: #ffffff;
 }
 
@@ -1173,14 +1263,14 @@ onMounted(() => {
 }
 
 .reviewBlockTitle {
-  color: #0a0a0a;
+  color: var(--text-h);
   font: 600 18px/27px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 
 .myReviewCard {
   border-radius: 16px;
-  border: 2px solid #e9d4ff;
-  background: linear-gradient(135deg, rgba(250, 245, 255, 1) 0%, rgba(239, 246, 255, 1) 100%);
+  border: 2px solid var(--accent-border);
+  background: var(--accent-bg);
   padding: 26px 26px 2px;
 }
 
@@ -1193,8 +1283,8 @@ onMounted(() => {
   width: 48px;
   height: 48px;
   border-radius: 999px;
-  background: #e5e7eb;
-  color: #4a5565;
+  background: var(--border);
+  color: var(--text);
   display: grid;
   place-items: center;
   font: 600 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
@@ -1202,7 +1292,7 @@ onMounted(() => {
 }
 
 .avatarMe {
-  background: #9810fa;
+  background: var(--accent);
   color: #ffffff;
 }
 
@@ -1221,25 +1311,40 @@ onMounted(() => {
 }
 
 .reviewName {
-  color: #0a0a0a;
+  color: var(--text-h);
   font: 500 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 
 .reviewStars {
-  color: #fdc700;
+  color: var(--accent);
   letter-spacing: 1px;
   font: 400 14px/16px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 
 .reviewDate {
-  color: #6a7282;
+  color: var(--text);
   font: 500 12px/16px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 
 .reviewText {
-  color: #364153;
+  color: var(--text);
   font: 400 16px/26px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
   word-break: break-word;
+}
+
+.reviewImgs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.reviewImg {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid var(--border);
 }
 
 .myReviewEmpty {
@@ -1250,7 +1355,7 @@ onMounted(() => {
 }
 
 .myEmptyText {
-  color: #364153;
+  color: var(--text);
   font: 400 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 
@@ -1258,7 +1363,7 @@ onMounted(() => {
   height: 36px;
   border-radius: 999px;
   border: 0;
-  background: #9810fa;
+  background: var(--accent);
   color: #ffffff;
   padding: 0 14px;
   cursor: pointer;
@@ -1268,7 +1373,7 @@ onMounted(() => {
 
 .reviewsLoading,
 .reviewsEmpty {
-  color: #4a5565;
+  color: var(--text);
   font: 400 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 
@@ -1281,7 +1386,7 @@ onMounted(() => {
   display: flex;
   gap: 16px;
   padding-bottom: 24px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  border-bottom: 1px solid var(--border);
 }
 
 .otherItem:last-child {

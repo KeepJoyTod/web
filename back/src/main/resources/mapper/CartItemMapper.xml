@@ -8,12 +8,14 @@
     </select>
 
     <select id="getByUserIdAndProductId" resultType="com.web.pojo.CartItem">
-        SELECT * FROM cart_items WHERE user_id = #{userId} AND product_id = #{productId} LIMIT 1
+        SELECT * FROM cart_items WHERE user_id = #{userId} AND product_id = #{productId} 
+        <if test="skuId != null"> AND sku_id = #{skuId} </if>
+        LIMIT 1
     </select>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO cart_items(user_id, product_id, quantity, checked, create_time, update_time)
-        VALUES (#{userId}, #{productId}, #{quantity}, #{checked}, NOW(), NOW())
+        INSERT INTO cart_items(user_id, product_id, sku_id, quantity, checked, create_time, update_time)
+        VALUES (#{userId}, #{productId}, #{skuId}, #{quantity}, #{checked}, NOW(), NOW())
     </insert>
 
     <update id="update">

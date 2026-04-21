@@ -16,9 +16,9 @@ public class Aftersale {
     private Long id;
     private Long userId;
     private Long orderId;
-     private String orderItemId;
-     private Integer qty;
-     private String evidence;
+    private String orderItemId;
+    private Integer qty;
+    private String evidence;
     private String type; // refund_only, return_refund
     private String reason;
     private String status; // SUBMITTED, PROCESSING, COMPLETED, CANCELLED

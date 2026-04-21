@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { api } from '../lib/api'
 
 import UiEmptyState from '../components/ui/UiEmptyState.vue'
 import { useOrderDraftStore } from '../stores/orderDraft'
+import { useOrdersStore } from '../stores/orders'
 import { useTrackerStore } from '../stores/tracker'
 
 import shieldIconUrl from '../assets/figma/cashier/icon-shield.svg'
@@ -18,17 +20,23 @@ type PayChannel = 'wechat' | 'alipay' | 'unionpay' | 'balance'
 const router = useRouter()
 const route = useRoute()
 const orderDraft = useOrderDraftStore()
+const orders = useOrdersStore()
 const tracker = useTrackerStore()
+
+const loading = ref(false)
 
 const orderId = computed(() => {
   const raw = route.query.orderId
   return typeof raw === 'string' ? raw : ''
 })
 
-const canShow = computed(() => Boolean(orderId.value) && orderDraft.orderId === orderId.value)
+const canShow = computed(() => Boolean(orderId.value))
 
 const priceFmt = new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' })
-const payable = computed(() => orderDraft.draft.amounts?.payable ?? 0)
+const payable = computed(() => {
+  if (orderDraft.orderId !== orderId.value) return 0
+  return orderDraft.draft.amounts?.payable ?? 0
+})
 
 const selectedChannel = ref<PayChannel>('wechat')
 
@@ -72,8 +80,28 @@ const cancelPay = async () => {
   await router.push({ name: 'orders' })
 }
 
-onMounted(() => {
+const fetchOrder = async () => {
+  if (!orderId.value) return
+  loading.value = true
+  try {
+    const res = await api.get(`/v1/orders/${encodeURIComponent(orderId.value)}`)
+    const data = res.data?.data
+    if (data) {
+      orderDraft.loadFromBackend(data)
+      orders.upsertFromBackend(data)
+    }
+  } catch (e) {
+    console.error('Failed to fetch order:', e)
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(async () => {
   if (!canShow.value) return
+  if (orderDraft.orderId !== orderId.value) {
+    await fetchOrder()
+  }
   startTimer()
 })
 
@@ -86,12 +114,16 @@ onBeforeUnmount(() => {
   <div class="page">
     <main class="main" aria-live="polite">
       <UiEmptyState
-        v-if="!canShow"
+        v-if="!canShow || (!loading && orderDraft.orderId !== orderId)"
         title="订单信息缺失"
         desc="请从结算页提交订单后再支付"
         action-text="去结算"
         @action="router.push({ name: 'checkout' })"
       />
+
+      <div v-else-if="loading" class="loading">
+        正在获取订单信息...
+      </div>
 
       <div v-else class="wrap">
         <div class="top">
@@ -195,7 +227,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .page {
   min-height: 100svh;
-  background: #f9fafb;
+  background: var(--bg);
 }
 
 .main {
@@ -217,18 +249,18 @@ onBeforeUnmount(() => {
 
 .h1 {
   font: 600 24px/32px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #0a0a0a;
+  color: var(--text-h);
 }
 
 .orderNo {
   font: 400 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #4a5565;
+  color: var(--text);
 }
 
 .amountCard {
   border-radius: 16px;
   padding: 32px;
-  background: linear-gradient(135deg, rgba(173, 70, 255, 1) 0%, rgba(43, 127, 255, 1) 100%);
+  background: var(--accent);
   color: #ffffff;
   display: grid;
   place-items: center;
@@ -258,7 +290,8 @@ onBeforeUnmount(() => {
 
 .payPanel {
   border-radius: 16px;
-  background: #ffffff;
+  background: var(--bg);
+  border: 1px solid var(--border);
   padding: 24px 24px 24px;
   display: grid;
   gap: 16px;
@@ -266,7 +299,7 @@ onBeforeUnmount(() => {
 
 .panelTitle {
   font: 600 20px/30px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #0a0a0a;
+  color: var(--text-h);
 }
 
 .payList {
@@ -278,8 +311,8 @@ onBeforeUnmount(() => {
   width: 100%;
   height: 84px;
   border-radius: 14px;
-  border: 2px solid #e5e7eb;
-  background: #ffffff;
+  border: 2px solid var(--border);
+  background: var(--bg);
   padding: 18px;
   display: flex;
   align-items: center;
@@ -289,8 +322,8 @@ onBeforeUnmount(() => {
 }
 
 .payBtn.on {
-  border-color: #ad46ff;
-  background: #faf5ff;
+  border-color: var(--accent);
+  background: var(--accent-bg);
 }
 
 .payLeft {
@@ -314,19 +347,19 @@ onBeforeUnmount(() => {
 
 .payName {
   font: 500 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #0a0a0a;
+  color: var(--text-h);
 }
 
 .payDesc {
   font: 500 12px/16px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #6a7282;
+  color: var(--text);
 }
 
 .radioOff {
   width: 20px;
   height: 20px;
   border-radius: 9999px;
-  border: 2px solid #d1d5dc;
+  border: 2px solid var(--border);
   flex: 0 0 auto;
 }
 
@@ -338,7 +371,7 @@ onBeforeUnmount(() => {
 
 .safePanel {
   border-radius: 16px;
-  background: linear-gradient(135deg, rgba(250, 245, 255, 1) 0%, rgba(239, 246, 255, 1) 100%);
+  background: var(--accent-bg);
   padding: 24px 24px 24px;
   display: grid;
   gap: 12px;
@@ -357,7 +390,7 @@ onBeforeUnmount(() => {
 
 .safeTitle {
   font: 500 18px/27px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #59168b;
+  color: var(--accent);
 }
 
 .safeList {
@@ -374,12 +407,12 @@ onBeforeUnmount(() => {
 
 .dot {
   font: 400 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #9810fa;
+  color: var(--accent);
 }
 
 .safeText {
   font: 400 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #8200db;
+  color: var(--text);
 }
 
 .actions {
@@ -398,14 +431,14 @@ onBeforeUnmount(() => {
 
 .primary {
   border: 0;
-  background: #9810fa;
+  background: var(--accent);
   color: #ffffff;
 }
 
 .ghost {
-  border: 1px solid #d1d5dc;
-  background: #ffffff;
-  color: #364153;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
 }
 </style>
 

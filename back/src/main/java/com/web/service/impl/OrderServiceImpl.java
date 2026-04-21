@@ -9,6 +9,7 @@ import com.web.pojo.CartItem;
 import com.web.pojo.Order;
 import com.web.pojo.OrderItem;
 import com.web.pojo.Product;
+import com.web.pojo.ProductSku;
 import com.web.service.OrderService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -78,11 +79,26 @@ public class OrderServiceImpl implements OrderService {
         // 2. 预占库存与计算价格
         for (CartItem cartItem : checkedItems) {
             Product product = productMapper.getById(cartItem.getProductId());
-            if (product == null || product.getStock() < cartItem.getQuantity()) {
-                throw new RuntimeException("Insufficient stock for product: " + cartItem.getProductId());
+            if (product == null) {
+                throw new RuntimeException("Product not found: " + cartItem.getProductId());
+            }
+
+            // 如果有 SKU，扣减 SKU 库存
+            if (cartItem.getSkuId() != null) {
+                ProductSku sku = productMapper.getSkuById(cartItem.getSkuId());
+                if (sku == null || sku.getStock() < cartItem.getQuantity()) {
+                    throw new RuntimeException("Insufficient stock for SKU: " + cartItem.getSkuId());
+                }
+                sku.setStock(sku.getStock() - cartItem.getQuantity());
+                productMapper.updateSku(sku);
+            } else {
+                // 如果没有 SKU，扣减 SPU 基础库存
+                if (product.getStock() < cartItem.getQuantity()) {
+                    throw new RuntimeException("Insufficient stock for product: " + cartItem.getProductId());
+                }
             }
             
-            // 简单扣减库存
+            // 扣减 SPU 总库存
             product.setStock(product.getStock() - cartItem.getQuantity());
             productMapper.update(product);
             
@@ -91,10 +107,12 @@ public class OrderServiceImpl implements OrderService {
             
             OrderItem orderItem = new OrderItem();
             orderItem.setProductId(product.getId());
+            orderItem.setSkuId(cartItem.getSkuId());
             orderItem.setProductName(product.getName());
             orderItem.setPrice(product.getPrice());
             orderItem.setQuantity(cartItem.getQuantity());
             orderItem.setTotalAmount(itemTotal);
+            orderItem.setProductImage("/product_" + product.getId() + ".jpg"); // 设置商品图片
             orderItems.add(orderItem);
         }
         
@@ -139,6 +157,26 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean updateOrderStatus(Long id, Integer status) {
-        return orderMapper.updateStatus(id, status) > 0;
+        Order order = orderMapper.getById(id);
+        if (order == null) return false;
+        
+        // 如果已经是目标状态，则不需要重复操作
+        if (order.getStatus().equals(status)) return true;
+
+        boolean success = orderMapper.updateStatus(id, status) > 0;
+        
+        // 如果状态更新为已支付 (1)，则增加商品销量
+        if (success && status == 1) {
+            List<OrderItem> items = orderItemMapper.getListByOrderId(id);
+            for (OrderItem item : items) {
+                Product product = productMapper.getById(item.getProductId());
+                if (product != null) {
+                    product.setSold((product.getSold() != null ? product.getSold() : 0) + item.getQuantity());
+                    productMapper.update(product);
+                }
+            }
+        }
+        
+        return success;
     }
 }

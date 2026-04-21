@@ -58,9 +58,10 @@ export const useCartStore = defineStore('cart', () => {
     for (const it of local) {
       const pid = Number(it.productId)
       if (!Number.isFinite(pid)) continue
-      const found = serverByProductId.get(pid)
+      const skuId = it.skuId && it.skuId !== 'default' ? Number(it.skuId) : null
+      const found = list.find((x: any) => Number(x.productId) === pid && (skuId ? Number(x.skuId) === skuId : !x.skuId))
       if (!found) {
-        await api.post('/v1/cart/items', { productId: pid, quantity: it.qty })
+        await api.post('/v1/cart/items', { productId: pid, skuId: it.skuId, quantity: it.qty })
         continue
       }
       if (found.quantity !== it.qty) {
@@ -76,7 +77,7 @@ export const useCartStore = defineStore('cart', () => {
       try {
         const pid = Number(input.productId)
         if (Number.isFinite(pid)) {
-          api.post('/v1/cart/items', { productId: pid, quantity: input.qty }).catch(() => {})
+          api.post('/v1/cart/items', { productId: pid, skuId: input.skuId, quantity: input.qty }).catch(() => {})
         }
       } catch {}
       return
@@ -85,7 +86,7 @@ export const useCartStore = defineStore('cart', () => {
     try {
       const pid = Number(input.productId)
       if (Number.isFinite(pid)) {
-        api.post('/v1/cart/items', { productId: pid, quantity: input.qty }).catch(() => {})
+        api.post('/v1/cart/items', { productId: pid, skuId: input.skuId, quantity: input.qty }).catch(() => {})
       }
     } catch {}
   }

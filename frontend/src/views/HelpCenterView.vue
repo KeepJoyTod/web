@@ -105,7 +105,7 @@ const openFooter = (title: string) => {
   min-height: 100svh;
   display: flex;
   flex-direction: column;
-  background: #f9fafb;
+  background: var(--bg);
 }
 
 .main {
@@ -121,7 +121,7 @@ const openFooter = (title: string) => {
 .h1 {
   margin: 10px 0 18px;
   font: 600 24px/32px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #0a0a0a;
+  color: var(--text-h);
 }
 
 .cards {
@@ -131,8 +131,8 @@ const openFooter = (title: string) => {
 }
 
 .card {
-  border: 0;
-  background: #ffffff;
+  border: 1px solid var(--border);
+  background: var(--bg);
   border-radius: 16px;
   padding: 24px 24px 0;
   cursor: pointer;
@@ -149,7 +149,7 @@ const openFooter = (title: string) => {
   width: 48px;
   height: 48px;
   border-radius: 999px;
-  background: #faf5ff;
+  background: var(--accent-bg);
   display: grid;
   place-items: center;
   flex: 0 0 auto;
@@ -167,23 +167,24 @@ const openFooter = (title: string) => {
 
 .cardTitle {
   font: 600 18px/27px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #0a0a0a;
+  color: var(--text-h);
 }
 
 .cardDesc {
   font: 400 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #4a5565;
+  color: var(--text);
 }
 
 .cardAction {
   font: 400 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #9810fa;
+  color: var(--accent);
   white-space: pre-line;
 }
 
 .contact {
   margin-top: 24px;
-  background: #ffffff;
+  background: var(--bg);
+  border: 1px solid var(--border);
   border-radius: 16px;
   padding: 24px 24px 0;
   box-shadow: var(--shadow);
@@ -192,7 +193,7 @@ const openFooter = (title: string) => {
 .h2 {
   margin: 0 0 16px;
   font: 600 20px/30px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #0a0a0a;
+  color: var(--text-h);
 }
 
 .contactList {
@@ -203,12 +204,12 @@ const openFooter = (title: string) => {
 
 .contactItem {
   font: 400 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #4a5565;
+  color: var(--text);
 }
 
 .footer {
-  border-top: 1px solid rgba(0, 0, 0, 0.1);
-  background: #f9fafb;
+  border-top: 1px solid var(--border);
+  background: var(--code-bg);
   padding: 48px 16px 0;
 }
 
@@ -228,7 +229,7 @@ const openFooter = (title: string) => {
 
 .footerTitle {
   font: 600 18px/27px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #0a0a0a;
+  color: var(--text-h);
 }
 
 .footerList {
@@ -243,20 +244,20 @@ const openFooter = (title: string) => {
   text-align: left;
   cursor: pointer;
   font: 400 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #4a5565;
+  color: var(--text);
 }
 
 .footerLink:hover {
-  color: #9810fa;
+  color: var(--accent);
 }
 
 .footerCopyright {
-  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  border-top: 1px solid var(--border);
   margin-top: 48px;
   padding-top: 33px;
   text-align: center;
   font: 400 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #4a5565;
+  color: var(--text);
 }
 
 @media (min-width: 920px) {

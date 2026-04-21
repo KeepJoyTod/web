@@ -10,6 +10,7 @@ type LoadState = 'loading' | 'ready' | 'empty' | 'error'
 type CategoryShortcut = {
   id: string
   name: string
+  icon: string
 }
 
 type ProductCard = {
@@ -27,15 +28,26 @@ const auth = useAuthStore()
 const state = ref<LoadState>('loading')
 const keyword = ref('')
 
+const CAT_ICONS: Record<string, string> = {
+  c_phone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>',
+  c_laptop: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="2" y1="20" x2="22" y2="20"></line></svg>',
+  c_wear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18h12"></path><path d="M6 6h12"></path><rect x="6" y="6" width="12" height="12" rx="2"></rect><path d="M12 10v4"></path></svg>',
+  c_home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>',
+  c_food: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21.94c-5.5 0-10-4.5-10-10a10 10 0 0 1 10-10c5.5 0 10 4.5 10 10a10 10 0 0 1-10 10Z"></path><path d="m9 12 2 2 4-4"></path></svg>',
+  c_beauty: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 2 5 5"></path><path d="m15 11 5 5"></path><path d="m19 17-6-6"></path><path d="M21 21l-4.5-4.5"></path><path d="M3 21l9-9"></path><path d="m9 8 3 3"></path><path d="M14 14l3 3"></path></svg>',
+  c_baby: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="3"></circle><path d="M12 22V8"></path><path d="M5 12V11c0-2 1.5-3 3.5-3h7c2 0 3.5 1 3.5 3v1"></path><path d="M9 18h6"></path><path d="M10 22h4"></path></svg>',
+  c_more: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>',
+}
+
 const categories = ref<CategoryShortcut[]>([
-  { id: 'c_phone', name: '手机' },
-  { id: 'c_laptop', name: '电脑' },
-  { id: 'c_wear', name: '穿戴' },
-  { id: 'c_home', name: '家电' },
-  { id: 'c_food', name: '食品' },
-  { id: 'c_beauty', name: '美妆' },
-  { id: 'c_baby', name: '母婴' },
-  { id: 'c_more', name: '更多' },
+  { id: 'c_phone', name: '手机', icon: CAT_ICONS.c_phone },
+  { id: 'c_laptop', name: '电脑', icon: CAT_ICONS.c_laptop },
+  { id: 'c_digital', name: '数码', icon: CAT_ICONS.c_wear },
+  { id: 'c_home', name: '家电', icon: CAT_ICONS.c_home },
+  { id: 'c_food', name: '食品', icon: CAT_ICONS.c_food },
+  { id: 'c_beauty', name: '美妆', icon: CAT_ICONS.c_beauty },
+  { id: 'c_daily', name: '生活', icon: CAT_ICONS.c_baby },
+  { id: 'c_more', name: '更多', icon: CAT_ICONS.c_more },
 ])
 
 const banners = ref<{ id: string; title: string; subtitle: string }[]>([
@@ -94,9 +106,13 @@ const goCategory = (c: CategoryShortcut) => {
     router.push({ name: 'appliance' })
     return
   }
+  if (c.id === 'c_more') {
+    router.push({ name: 'category' })
+    return
+  }
   router.push({ name: 'category', query: { category: c.id } })
 }
-
+ 
 const goProduct = (p: ProductCard) => {
   router.push({ name: 'productDetail', params: { id: p.id } })
 }
@@ -152,7 +168,7 @@ onMounted(() => {
         <button class="searchBtn" type="submit">搜索</button>
       </form>
       <div class="right">
-        <button class="msgBtn" type="button" aria-label="消息中心" @click="router.push({ name: 'me' })">
+        <button class="msgBtn" type="button" aria-label="消息中心" @click="router.push({ name: 'messages' })">
           消息
         </button>
         <button
@@ -172,7 +188,7 @@ onMounted(() => {
           <article v-for="b in banners" :key="b.id" class="bannerCard">
             <div class="bannerTitle">{{ b.title }}</div>
             <div class="bannerSub">{{ b.subtitle }}</div>
-            <div class="bannerCta" aria-hidden="true">立即查看</div>
+        
           </article>
         </div>
       </section>
@@ -185,7 +201,7 @@ onMounted(() => {
           type="button"
           @click="goCategory(c)"
         >
-          <span class="catIcon" aria-hidden="true"></span>
+          <span class="catIcon" aria-hidden="true" v-html="c.icon"></span>
           <span class="catName">{{ c.name }}</span>
         </button>
       </section>
@@ -392,6 +408,16 @@ onMounted(() => {
   border-radius: 12px;
   background: color-mix(in srgb, var(--accent) 20%, transparent);
   border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+  padding: 6px;
+}
+
+.catIcon :deep(svg) {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 .catName {

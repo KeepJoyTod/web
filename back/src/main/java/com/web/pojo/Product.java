@@ -19,6 +19,10 @@ public class Product {
     private String name;
     private String description;
     private String tags;
+    private BigDecimal rating; // 评分
+    private Integer sold;      // 已售数量
+    private String activityLabel; // 活动标签
+    private BigDecimal originalPrice; // 原价
     private BigDecimal price; // 基础展示价格
     private Integer stock;    // 基础库存
     private Integer status;   // 状态 (0-下架, 1-上架)

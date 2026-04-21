@@ -16,6 +16,7 @@ public class CartItem {
     private Long id;
     private Long userId;
     private Long productId;
+    private Long skuId;
     private Integer quantity;
     private Integer checked; // 是否选中: 0-否, 1-是
     private LocalDateTime createTime;
