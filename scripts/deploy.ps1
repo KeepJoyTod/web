@@ -174,13 +174,8 @@ function Import-DbSchema {
   }
 
   $sqls = @(
-    "schema_v1.sql",
-    "schema_v2_address.sql",
-    "schema_v3_payment.sql",
-    "schema_v4_marketing_aftersales.sql",
-    "schema_v5_products_tags.sql",
-    "seed_demo.sql",
-    "seed_products_categories_1_8.sql"
+    
+    "init_db.sql"
   )
 
   if ($DryRun) {
