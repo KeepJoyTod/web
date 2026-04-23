@@ -6,6 +6,7 @@ param(
   [switch]$InitDb,
   [switch]$SkipBuild,
   [switch]$DryRun,
+  [switch]$OpenWindow,
   [string]$DbName = "web",
   [string]$DbUser = "root",
   [string]$DbPassword = "123456",
@@ -69,6 +70,17 @@ function Ensure-Tool([string]$CommandName, [string]$WingetId) {
   if (-not (Command-Exists $CommandName)) {
     throw ("Install finished but " + $CommandName + " is still not found. Restart your terminal and re-run.")
   }
+}
+
+function Get-PowerShellExe {
+  if (Command-Exists "pwsh") { return "pwsh" }
+  if (Command-Exists "powershell.exe") { return "powershell.exe" }
+  if (Command-Exists "powershell") { return "powershell" }
+  throw "Neither pwsh nor powershell.exe found."
+}
+
+function Escape-PwshSingleQuoted([string]$Value) {
+  return ($Value -replace "'", "''")
 }
 
 function Ensure-Java17 {
@@ -152,22 +164,38 @@ function Import-DbSchema {
   Wait-For-MySQL
 
   Write-Step "Importing database schema and seed data ..."
+  $sqlDir = Join-Path $Root "back/sql"
+  if (-not (Test-Path $sqlDir)) {
+    $fallback = Join-Path $BackendDir "sql"
+    if (Test-Path $fallback) { $sqlDir = $fallback }
+  }
+  if (-not (Test-Path $sqlDir)) {
+    throw ("SQL directory not found. Expected: " + (Join-Path $Root "back/sql") + " or " + (Join-Path $BackendDir "sql"))
+  }
+
   $sqls = @(
-    "back/sql/schema_v1.sql",
-    "back/sql/schema_v2_address.sql",
-    "back/sql/schema_v3_payment.sql",
-    "back/sql/schema_v4_marketing_aftersales.sql",
-    "back/sql/schema_v5_products_tags.sql",
-    "back/sql/seed_demo.sql",
-    "back/sql/seed_products_categories_1_8.sql"
+    "schema_v1.sql",
+    "schema_v2_address.sql",
+    "schema_v3_payment.sql",
+    "schema_v4_marketing_aftersales.sql",
+    "schema_v5_products_tags.sql",
+    "seed_demo.sql",
+    "seed_products_categories_1_8.sql"
   )
 
+  if ($DryRun) {
+    Write-Host ("[dry-run] ensure database exists: " + $DbName)
+  } else {
+    & docker exec $MysqlContainer mysql "-u$DbUser" "-p$DbPassword" -e ("CREATE DATABASE IF NOT EXISTS ``" + $DbName + "`` DEFAULT CHARSET utf8mb4;") | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw ("Failed to create database: " + $DbName) }
+  }
+
   foreach ($rel in $sqls) {
-    $f = Join-Path $Root $rel
+    $f = Join-Path $sqlDir $rel
     if (-not (Test-Path $f)) { throw ("SQL file not found: " + $f) }
 
     if ($DryRun) {
-      Write-Host ("[dry-run] import " + $rel)
+      Write-Host ("[dry-run] import " + (Split-Path $sqlDir -Leaf) + "/" + $rel)
       continue
     }
 
@@ -263,11 +291,17 @@ function Start-ServiceProcess([string]$Name, [string]$WorkingDirectory, [string]
     return
   }
 
-  $full = "cd `"$WorkingDirectory`"; " + $CommandLine
-  $p = Start-Process -FilePath "powershell" -ArgumentList @("-NoExit", "-Command", $full) -WorkingDirectory $WorkingDirectory -PassThru
+  $psExe = Get-PowerShellExe
+  $escapedDir = Escape-PwshSingleQuoted $WorkingDirectory
+  $cmd = "Set-Location -LiteralPath '$escapedDir'; $CommandLine"
+
+  if ($OpenWindow) {
+    $p = Start-Process -FilePath $psExe -ArgumentList @("-NoExit", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $cmd) -WorkingDirectory $WorkingDirectory -PassThru
+  } else {
+    $p = Start-Process -FilePath $psExe -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $cmd) -WorkingDirectory $WorkingDirectory -RedirectStandardOutput $log -RedirectStandardError $log -PassThru
+  }
   Set-Content -Path $pidfile -Value $p.Id -Encoding ASCII
-  Set-Content -Path $log -Value "" -Encoding UTF8
-  Write-Host ("Started " + $Name + " (pid=" + $p.Id + ")")
+  Write-Host ("Started " + $Name + " (pid=" + $p.Id + "), logs: " + $log)
 }
 
 function Start-App {

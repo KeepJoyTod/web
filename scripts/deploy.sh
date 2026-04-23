@@ -88,6 +88,9 @@ ensure_java17() {
     major="$(java -version 2>&1 | head -n1 | sed -E 's/.*"([0-9]+).*/\1/')"
     if [[ "$major" == "17" ]]; then return 0; fi
   fi
+  if have apt-get; then install_pkgs openjdk-17-jdk; return 0; fi
+  if have dnf || have yum; then install_pkgs java-17-openjdk-devel; return 0; fi
+  if have brew; then install_pkgs openjdk@17; return 0; fi
   install_pkgs openjdk-17-jdk
 }
 
@@ -104,7 +107,13 @@ ensure_node18() {
 
   if have apt-get; then
     install_pkgs nodejs npm
-    return 0
+    if have node; then
+      local major2
+      major2="$(node -v | sed -E 's/^v([0-9]+).*/\1/')"
+      if [[ "$major2" -ge 18 ]]; then return 0; fi
+    fi
+    echo "Node.js 18+ is required. Your distro repo may be too old; please install via nvm or NodeSource." >&2
+    exit 1
   fi
   if have brew; then
     install_pkgs node
@@ -115,14 +124,26 @@ ensure_node18() {
 }
 
 ensure_docker() {
-  have docker || install_pkgs docker.io
+  if have docker; then return 0; fi
+  if have apt-get; then install_pkgs docker.io; return 0; fi
+  if have dnf || have yum; then install_pkgs docker; return 0; fi
+  if have brew; then
+    install_pkgs docker
+    echo "On macOS you still need Docker Desktop/Colima to run containers." >&2
+    return 0
+  fi
+  install_pkgs docker
 }
 
 start_compose() {
   [[ "$SKIP_DB" == "1" ]] && return 0
   ensure_docker
   say "Starting MySQL (docker compose) ..."
-  (cd "$ROOT" && run "docker compose up -d || docker-compose up -d")
+  if [[ "$DRYRUN" == "1" ]]; then
+    echo "[dry-run] (cd \"$ROOT\" && docker compose up -d) or docker-compose up -d"
+    return 0
+  fi
+  (cd "$ROOT" && (docker compose up -d || docker-compose up -d))
 }
 
 wait_mysql() {
@@ -145,21 +166,33 @@ import_db() {
   wait_mysql
   say "Importing database schema and seed data ..."
 
+  local sql_dir="$ROOT/back/sql"
+  if [[ ! -d "$sql_dir" && -d "$BACKEND_DIR/sql" ]]; then
+    sql_dir="$BACKEND_DIR/sql"
+  fi
+  [[ -d "$sql_dir" ]] || { echo "SQL directory not found: $sql_dir" >&2; exit 1; }
+
   local sqls=(
-    "back/sql/schema_v1.sql"
-    "back/sql/schema_v2_address.sql"
-    "back/sql/schema_v3_payment.sql"
-    "back/sql/schema_v4_marketing_aftersales.sql"
-    "back/sql/schema_v5_products_tags.sql"
-    "back/sql/seed_demo.sql"
-    "back/sql/seed_products_categories_1_8.sql"
+    "schema_v1.sql"
+    "schema_v2_address.sql"
+    "schema_v3_payment.sql"
+    "schema_v4_marketing_aftersales.sql"
+    "schema_v5_products_tags.sql"
+    "seed_demo.sql"
+    "seed_products_categories_1_8.sql"
   )
 
+  if [[ "$DRYRUN" == "1" ]]; then
+    echo "[dry-run] ensure database exists: $DB_NAME"
+  else
+    docker exec "$MYSQL_CONTAINER" mysql "-u$DB_USER" "-p$DB_PASSWORD" -e "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\` DEFAULT CHARSET utf8mb4;" >/dev/null
+  fi
+
   for rel in "${sqls[@]}"; do
-    local f="$ROOT/$rel"
+    local f="$sql_dir/$rel"
     [[ -f "$f" ]] || { echo "SQL file not found: $f" >&2; exit 1; }
     if [[ "$DRYRUN" == "1" ]]; then
-      echo "[dry-run] import $rel"
+      echo "[dry-run] import $(basename "$sql_dir")/$rel"
       continue
     fi
     docker exec -i "$MYSQL_CONTAINER" mysql "-u$DB_USER" "-p$DB_PASSWORD" "$DB_NAME" <"$f"
