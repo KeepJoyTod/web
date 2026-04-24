@@ -1,11 +1,19 @@
 version: "3.9"
 services:
   mysql:
+<<<<<<< HEAD
     image: mysql:8.0
     container_name: projectku-mysql
     environment:
       MYSQL_ROOT_PASSWORD: "123456"
       MYSQL_DATABASE: "web"
+=======
+    # image: mysql:8.0
+    container_name: projectku-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: "123456"
+      MYSQL_DATABASE: "projectku"
+>>>>>>> 29b5bc9fa6f2316dd9e355abe5387ab002c80ded
       TZ: "Asia/Shanghai"
     volumes:
       - ./mysql-data:/var/lib/mysql

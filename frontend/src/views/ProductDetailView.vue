@@ -9,6 +9,10 @@ import { useFavoritesStore } from '../stores/favorites'
 import { useReviewsStore, type Review } from '../stores/reviews'
 import { api } from '../lib/api'
 
+<<<<<<< HEAD
+=======
+import actionIconUrl from '../assets/figma/product-detail/action.svg'
+>>>>>>> 29b5bc9fa6f2316dd9e355abe5387ab002c80ded
 import backIconUrl from '../assets/figma/product-detail/back.svg'
 import cartIconUrl from '../assets/figma/product-detail/cart.svg'
 import chevronRightIconUrl from '../assets/figma/product-detail/chevron-right.svg'
@@ -328,17 +332,25 @@ const load = async () => {
     const name = String(x.name ?? '商品')
     const price = Number(x.price ?? 0)
     const originalPrice = Number.isFinite(Number(x.originalPrice)) ? Number(x.originalPrice) : price
+<<<<<<< HEAD
     const cover = `/product_${String(x.id ?? id.value)}.jpg`
     const media =
       Array.isArray(x.media) && x.media.length > 0
         ? x.media.map((m: any) => String(m)).filter((m: string) => m.trim())
         : [cover]
+=======
+>>>>>>> 29b5bc9fa6f2316dd9e355abe5387ab002c80ded
 
     const p: Product = {
       id: String(x.id ?? id.value),
       title: name,
       desc: String(x.description ?? ''),
+<<<<<<< HEAD
       media: media.length > 0 ? media : [productImgUrl],
+=======
+      // 如果后端有媒体图片则使用，否则使用默认占位图
+      media: x.media && x.media.length > 0 ? x.media : [productImgUrl],
+>>>>>>> 29b5bc9fa6f2316dd9e355abe5387ab002c80ded
       rating: Number.isFinite(Number(x.rating)) ? Number(x.rating) : 4.5,
       sold: Number.isFinite(Number(x.sold)) ? Number(x.sold) : 0,
       activityLabel: typeof x.activityLabel === 'string' && x.activityLabel.trim() ? x.activityLabel : '',

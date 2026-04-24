@@ -26,6 +26,7 @@ export const useFavoritesStore = defineStore('favorites', () => {
     try {
       const res = await api.get('/v1/favorites')
       const data = res.data?.data || []
+<<<<<<< HEAD
       items.value = data.map((item: any) => {
         const productId = String(item.productId ?? '')
         const cover =
@@ -55,6 +56,13 @@ export const useFavoritesStore = defineStore('favorites', () => {
           tags,
         }
       })
+=======
+      // 处理 tags，如果是字符串则转为数组
+      items.value = data.map((item: any) => ({
+        ...item,
+        tags: typeof item.tags === 'string' ? JSON.parse(item.tags) : item.tags
+      }))
+>>>>>>> 29b5bc9fa6f2316dd9e355abe5387ab002c80ded
     } catch (error) {
       console.error('Failed to fetch favorites:', error)
     } finally {

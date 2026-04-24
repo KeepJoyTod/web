@@ -38,6 +38,25 @@ const all = ref<Product[]>([])
 
 const priceFmt = new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' })
 
+<<<<<<< HEAD
+=======
+const coverSvg = (title: string, tone: string) => {
+  const text = title.length > 14 ? `${title.slice(0, 14)}…` : title
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">` +
+    `<defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1">` +
+    `<stop offset="0" stop-color="${tone}" stop-opacity="0.22"/>` +
+    `<stop offset="1" stop-color="${tone}" stop-opacity="0.08"/>` +
+    `</linearGradient></defs>` +
+    `<rect width="1200" height="800" fill="#f4f3ec"/>` +
+    `<rect width="1200" height="800" fill="url(#g)"/>` +
+    `<text x="60" y="420" font-size="64" font-family="system-ui, Segoe UI, Roboto, sans-serif" fill="#08060d" font-weight="800">${text}</text>` +
+    `<text x="60" y="498" font-size="30" font-family="system-ui, Segoe UI, Roboto, sans-serif" fill="#6b6375">元气购</text>` +
+    `</svg>`
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
+}
+
+>>>>>>> 29b5bc9fa6f2316dd9e355abe5387ab002c80ded
 const priceRangeOk = computed(() => {
   const min = minPrice.value.trim()
   const max = maxPrice.value.trim()
@@ -138,7 +157,11 @@ const load = async () => {
   try {
     const res = await api.get('/v1/products', { params: { category: 2, page: 1, size: 20 } })
     const list = Array.isArray(res.data?.data) ? res.data.data : []
+<<<<<<< HEAD
     all.value = list.map((x: any) => {
+=======
+    all.value = list.map((x: any, i: number) => {
+>>>>>>> 29b5bc9fa6f2316dd9e355abe5387ab002c80ded
       const name = String(x.name ?? '商品')
       const price = Number(x.price ?? 0)
       return {
