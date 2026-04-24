@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.web.mapper.ProductMapper">
+
+    <select id="getById" resultType="com.web.pojo.Product">
+        SELECT * FROM products WHERE id = #{id} AND status != 0
+    </select>
+
+    <select id="getList" resultType="com.web.pojo.Product">
+        SELECT * FROM products
+        <where>
+            status != 0
+            <if test="keyword != null and keyword != ''">
+                AND name LIKE CONCAT('%', #{keyword}, '%')
+            </if>
+            <if test="categoryId != null">
+                AND category_id = #{categoryId}
+            </if>
+        </where>
+        ORDER BY create_time DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO products(category_id, name, description, tags, rating, sold, activity_label, original_price, price, stock, status, create_time, update_time)
+        VALUES (#{categoryId}, #{name}, #{description}, #{tags}, #{rating}, #{sold}, #{activityLabel}, #{originalPrice}, #{price}, #{stock}, #{status}, NOW(), NOW())
+    </insert>
+
+    <update id="update">
+        UPDATE products
+        <set>
+            <if test="categoryId != null">category_id = #{categoryId},</if>
+            <if test="name != null">name = #{name},</if>
+            <if test="description != null">description = #{description},</if>
+            <if test="tags != null">tags = #{tags},</if>
+            <if test="rating != null">rating = #{rating},</if>
+            <if test="sold != null">sold = #{sold},</if>
+            <if test="activityLabel != null">activity_label = #{activityLabel},</if>
+            <if test="originalPrice != null">original_price = #{originalPrice},</if>
+            <if test="price != null">price = #{price},</if>
+            <if test="stock != null">stock = #{stock},</if>
+            <if test="status != null">status = #{status},</if>
+            update_time = NOW()
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <delete id="delete">
+        UPDATE products SET status = 0, update_time = NOW() WHERE id = #{id}
+    </delete>
+
+    <select id="getMediaByProductId" resultType="com.web.pojo.ProductMedia">
+        SELECT * FROM product_media WHERE product_id = #{productId} ORDER BY sort_order ASC
+    </select>
+
+    <select id="getSkusByProductId" resultType="com.web.pojo.ProductSku">
+        SELECT * FROM product_skus WHERE product_id = #{productId}
+    </select>
+
+    <select id="getSkuById" resultType="com.web.pojo.ProductSku">
+        SELECT * FROM product_skus WHERE id = #{skuId}
+    </select>
+
+    <update id="updateSku">
+        UPDATE product_skus
+        <set>
+            <if test="price != null">price = #{price},</if>
+            <if test="stock != null">stock = #{stock},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+</mapper>

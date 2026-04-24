@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.web.mapper.ReviewMapper">
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO reviews(user_id, order_id, product_id, rating, content, images, create_time, update_time)
+        VALUES (#{userId}, #{orderId}, #{productId}, #{rating}, #{content}, #{images}, NOW(), NOW())
+    </insert>
+
+    <select id="listByUser" resultType="com.web.pojo.Review">
+        SELECT r.*, u.nickname as nickname FROM reviews r
+        LEFT JOIN users u ON r.user_id = u.id
+        WHERE r.user_id = #{userId}
+        <if test="productId != null">
+            AND r.product_id = #{productId}
+        </if>
+        <if test="orderId != null">
+            AND r.order_id = #{orderId}
+        </if>
+        ORDER BY r.create_time DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <select id="listByProduct" resultType="com.web.pojo.Review">
+        SELECT r.*, u.nickname as nickname FROM reviews r
+        LEFT JOIN users u ON r.user_id = u.id
+        WHERE r.product_id = #{productId}
+        ORDER BY r.create_time DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+</mapper>
