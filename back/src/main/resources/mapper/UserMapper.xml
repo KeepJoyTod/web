@@ -12,8 +12,8 @@
     </select>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO users(account, password, nickname, create_time, update_time)
-        VALUES (#{account}, #{password}, #{nickname}, NOW(), NOW())
+        INSERT INTO users(account, password, nickname, role, status, create_time, update_time)
+        VALUES (#{account}, #{password}, #{nickname}, #{role}, #{status}, NOW(), NOW())
     </insert>
 
 </mapper>

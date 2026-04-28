@@ -22,6 +22,10 @@ public class UserServiceImpl implements UserService {
         }
         
         // 使用 Hutool 简单 MD5 校验
+        if (user.getStatus() != null && user.getStatus() == 0) {
+            throw new BusinessException("FORBIDDEN", "账号已禁用");
+        }
+
         String encryptedPassword = DigestUtil.md5Hex(password);
         if (!user.getPassword().equals(encryptedPassword)) {
             throw new BusinessException("UNAUTHORIZED", "用户不存在或密码错误");
@@ -40,6 +44,8 @@ public class UserServiceImpl implements UserService {
         user.setAccount(account);
         user.setPassword(DigestUtil.md5Hex(password));
         user.setNickname(nickname);
+        user.setRole("USER");
+        user.setStatus(1);
         
         userMapper.insert(user);
         return user;

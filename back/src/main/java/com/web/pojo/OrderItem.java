@@ -23,6 +23,6 @@ public class OrderItem {
     private Integer quantity; // 购买数量
     private BigDecimal totalAmount; // 总金额
     private String productImage; // 商品图片
-    private LocalDateTime createTime;
-    private LocalDateTime updateTime;
+    private java.util.Date createTime;
+    private java.util.Date updateTime;
 }

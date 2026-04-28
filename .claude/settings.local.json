@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mvn -f \"d:/Java/class/projectKu/web/back/pom.xml\" spring-boot:run)"
+    ]
+  }
+}

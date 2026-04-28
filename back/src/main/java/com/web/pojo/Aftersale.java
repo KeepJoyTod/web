@@ -22,6 +22,7 @@ public class Aftersale {
     private String type; // refund_only, return_refund
     private String reason;
     private String status; // SUBMITTED, PROCESSING, COMPLETED, CANCELLED
-    private LocalDateTime createTime;
-    private LocalDateTime updateTime;
+    private String adminRemark;
+    private java.util.Date createTime;
+    private java.util.Date updateTime;
 }

@@ -20,6 +20,6 @@ public class UserAddress {
     private String region;
     private String detail;
     private Integer isDefault; // 是否默认: 0-否, 1-是
-    private LocalDateTime createTime;
-    private LocalDateTime updateTime;
+    private java.util.Date createTime;
+    private java.util.Date updateTime;
 }

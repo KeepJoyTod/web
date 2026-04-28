@@ -8,6 +8,8 @@ import com.web.pojo.ProductMedia;
 import com.web.pojo.ProductSku;
 import com.web.service.ProductService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +29,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Cacheable(value = "product_detail", key = "#id")
     public Map<String, Object> getProductDetail(Long id) {
         Product product = productMapper.getById(id);
         if (product == null) return null;
@@ -59,6 +62,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Cacheable(value = "product_list", key = "T(java.util.Objects).hash(#keyword, #categoryId, #page, #size)")
     public List<Product> getProductList(String keyword, Long categoryId, int page, int size) {
         int offset = (page - 1) * size;
         return productMapper.getList(keyword, categoryId, offset, size);
@@ -66,6 +70,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @CacheEvict(value = {"product_list"}, allEntries = true)
     public boolean createProduct(Product product) {
         product.setStatus(1); // 默认上架
         return productMapper.insert(product) > 0;
@@ -73,12 +78,14 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @CacheEvict(value = {"product_detail"}, key = "#product.id")
     public boolean updateProduct(Product product) {
         return productMapper.update(product) > 0;
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @CacheEvict(value = {"product_detail"}, key = "#id")
     public boolean deleteProduct(Long id) {
         return productMapper.delete(id) > 0;
     }

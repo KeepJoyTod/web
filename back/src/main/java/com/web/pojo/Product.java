@@ -26,6 +26,10 @@ public class Product {
     private BigDecimal price; // 基础展示价格
     private Integer stock;    // 基础库存
     private Integer status;   // 状态 (0-下架, 1-上架)
-    private LocalDateTime createTime;
-    private LocalDateTime updateTime;
+    private java.util.Date createTime;
+    private java.util.Date updateTime;
+
+    // 关联字段
+    private java.util.List<ProductMedia> mediaList;
+    private java.util.List<ProductSku> skuList;
 }

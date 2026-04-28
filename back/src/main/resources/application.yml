@@ -12,10 +12,29 @@ spring:
     username: root
     password: 123456
     driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      pool-name: ProjectKu-HikariCP
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      database: 0
+      timeout: 5000
+  cache:
+    type: redis
+    redis:
+      time-to-live: 3600000 # 1 hour
+      cache-null-values: true
 
 mybatis:
   mapper-locations: classpath:mapper/*.xml
   type-aliases-package: com.web.pojo
   configuration:
     map-underscore-to-camel-case: true
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    # 生产环境建议使用 Slf4jImpl 并配合日志框架控制输出级别，避免 StdOutImpl 带来的同步 IO 开销
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl

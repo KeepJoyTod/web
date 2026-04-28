@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.web.mapper.CategoryMapper">
+
+    <resultMap id="CategoryTreeMap" type="com.web.pojo.Category">
+        <id property="id" column="id"/>
+        <result property="name" column="name"/>
+        <result property="parentId" column="parent_id"/>
+        <result property="createTime" column="create_time"/>
+        <collection property="children" ofType="com.web.pojo.Category" column="id" select="getByParentId"/>
+    </resultMap>
+
+    <!-- 注意：用户要求是一条 SQL 语句完成抓取。上面的 collection select 会导致 N+1。
+         所以我们应该使用 SELF JOIN。
+    -->
+
+    <resultMap id="CategoryOneLevelMap" type="com.web.pojo.Category">
+        <id property="id" column="p_id"/>
+        <result property="name" column="p_name"/>
+        <result property="parentId" column="p_parent_id"/>
+        <collection property="children" ofType="com.web.pojo.Category">
+            <id property="id" column="c_id"/>
+            <result property="name" column="c_name"/>
+            <result property="parentId" column="c_parent_id"/>
+        </collection>
+    </resultMap>
+
+    <select id="getTree" resultMap="CategoryOneLevelMap">
+        SELECT 
+            p.id as p_id, p.name as p_name, p.parent_id as p_parent_id,
+            c.id as c_id, c.name as c_name, c.parent_id as c_parent_id
+        FROM categories p
+        LEFT JOIN categories c ON p.id = c.parent_id
+        WHERE p.parent_id = 0
+    </select>
+
+</mapper>

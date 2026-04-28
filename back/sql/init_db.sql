@@ -27,6 +27,9 @@ CREATE TABLE `users` (
   `account` varchar(64) NOT NULL COMMENT '账号(邮箱/手机号)',
   `password` varchar(255) NOT NULL COMMENT '密码',
   `nickname` varchar(64) DEFAULT NULL COMMENT '昵称',
+  `avatar` varchar(512) DEFAULT NULL COMMENT '头像',
+  `role` varchar(32) NOT NULL DEFAULT 'USER' COMMENT '角色: USER, ADMIN',
+  `status` tinyint(4) NOT NULL DEFAULT '1' COMMENT '状态: 0-禁用, 1-启用',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -49,7 +52,11 @@ CREATE TABLE `products` (
   `status` tinyint(4) NOT NULL DEFAULT '1' COMMENT '状态: 0-下架, 1-上架',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  KEY `idx_category_id` (`category_id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_create_time` (`create_time`),
+  FULLTEXT KEY `ft_name_description` (`name`, `description`) WITH PARSER ngram
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='商品表';
 
 -- 商品媒体表 (轮播图)
@@ -97,10 +104,13 @@ CREATE TABLE `orders` (
   `pay_amount` decimal(10,2) NOT NULL COMMENT '支付金额',
   `status` tinyint(4) NOT NULL DEFAULT '0' COMMENT '状态: 0-待支付, 1-已支付, 2-已发货, 3-已完成, 4-已取消',
   `address_id` bigint(20) DEFAULT NULL COMMENT '收货地址ID',
+  `logistics_company` varchar(128) DEFAULT NULL COMMENT '物流公司',
+  `logistics_no` varchar(128) DEFAULT NULL COMMENT '物流单号',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_order_no` (`order_no`)
+  UNIQUE KEY `uk_order_no` (`order_no`),
+  KEY `idx_user_create_time` (`user_id`, `create_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='订单表';
 
 -- 订单明细表
@@ -180,6 +190,7 @@ CREATE TABLE `aftersales` (
   `type` varchar(32) NOT NULL COMMENT '售后类型',
   `reason` varchar(255) NOT NULL,
   `status` varchar(32) NOT NULL DEFAULT 'SUBMITTED',
+  `admin_remark` varchar(512) DEFAULT NULL COMMENT '管理员备注',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -231,9 +242,10 @@ INSERT INTO `categories` (`id`, `name`) VALUES
 (8, '运动户外');
 
 -- 3.2 用户数据
-INSERT INTO `users`(`account`, `password`, `nickname`) VALUES 
-('user@example.com','e10adc3949ba59abbe56e057f20f883e','测试用户'),
-('alice@example.com','e10adc3949ba59abbe56e057f20f883e','Alice');
+INSERT INTO `users`(`account`, `password`, `nickname`, `role`, `status`) VALUES 
+('admin@example.com','0192023a7bbd73250516f069df18b500','平台管理员','ADMIN',1),
+('user@example.com','e10adc3949ba59abbe56e057f20f883e','测试用户','USER',1),
+('alice@example.com','e10adc3949ba59abbe56e057f20f883e','Alice','USER',1);
 
 -- 3.3 商品数据（手机类，1-20）
 INSERT INTO `products`(`category_id`, `name`, `description`, `tags`, `price`, `stock`, `status`) VALUES

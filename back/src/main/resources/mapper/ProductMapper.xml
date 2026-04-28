@@ -3,8 +3,46 @@
         "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.web.mapper.ProductMapper">
 
-    <select id="getById" resultType="com.web.pojo.Product">
-        SELECT * FROM products WHERE id = #{id} AND status != 0
+    <resultMap id="ProductDetailMap" type="com.web.pojo.Product">
+        <id property="id" column="id"/>
+        <result property="categoryId" column="category_id"/>
+        <result property="name" column="name"/>
+        <result property="description" column="description"/>
+        <result property="tags" column="tags"/>
+        <result property="rating" column="rating"/>
+        <result property="sold" column="sold"/>
+        <result property="activityLabel" column="activity_label"/>
+        <result property="originalPrice" column="original_price"/>
+        <result property="price" column="price"/>
+        <result property="stock" column="stock"/>
+        <result property="status" column="status"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+        <collection property="mediaList" ofType="com.web.pojo.ProductMedia">
+            <id property="id" column="media_id"/>
+            <result property="productId" column="id"/>
+            <result property="url" column="media_url"/>
+            <result property="sortOrder" column="media_sort_order"/>
+        </collection>
+        <collection property="skuList" ofType="com.web.pojo.ProductSku">
+            <id property="id" column="sku_id"/>
+            <result property="productId" column="id"/>
+            <result property="attrs" column="sku_attrs"/>
+            <result property="price" column="sku_price"/>
+            <result property="stock" column="sku_stock"/>
+        </collection>
+    </resultMap>
+
+    <select id="getById" resultMap="ProductDetailMap">
+        SELECT 
+            p.*,
+            m.id as media_id, m.url as media_url, m.sort_order as media_sort_order,
+            s.id as sku_id, s.attrs as sku_attrs, s.price as sku_price, s.stock as sku_stock
+        FROM products p
+        LEFT JOIN product_media m ON p.id = m.product_id
+        LEFT JOIN product_skus s ON p.id = s.product_id
+        WHERE p.id = #{id} AND p.status != 0
+        ORDER BY m.sort_order ASC
     </select>
 
     <select id="getList" resultType="com.web.pojo.Product">
@@ -12,7 +50,7 @@
         <where>
             status != 0
             <if test="keyword != null and keyword != ''">
-                AND name LIKE CONCAT('%', #{keyword}, '%')
+                AND MATCH(name, description) AGAINST(#{keyword} IN NATURAL LANGUAGE MODE)
             </if>
             <if test="categoryId != null">
                 AND category_id = #{categoryId}

@@ -16,4 +16,20 @@ services:
       "--default-authentication-plugin=mysql_native_password",
       "--character-set-server=utf8mb4",
       "--collation-server=utf8mb4_unicode_ci"
-    ]
+    ]
+
+  redis:
+
+    image: redis:7-alpine
+
+    container_name: projectku-redis
+
+    ports:
+
+      - "6379:6379"
+
+    volumes:
+
+      - ./redis-data:/data
+
+    command: ["redis-server", "--appendonly", "yes"]

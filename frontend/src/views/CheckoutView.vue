@@ -194,6 +194,7 @@ const submit = async () => {
       shipping: backendShipping,
       payable: backendPayable,
     })
+    cart.clear()
     await router.push({ name: 'cashier', query: { orderId: mappedId } })
   } catch (e) {
     const msg =

@@ -40,15 +40,10 @@ public class ProductController {
         
         List<Product> list = productService.getProductList(keyword, category, page, size);
         
-        // 实体转 Map 返回，不使用 DTO
-        List<Map<String, Object>> mapList = list.stream()
-                .map(product -> BeanUtil.beanToMap(product, false, true))
-                .collect(Collectors.toList());
-                
         Map<String, Object> result = MapUtil.builder(new java.util.HashMap<String, Object>())
                 .put("code", 200)
                 .put("message", "success")
-                .put("data", mapList)
+                .put("data", list)
                 .build();
                 
         return ResponseEntity.ok(result);

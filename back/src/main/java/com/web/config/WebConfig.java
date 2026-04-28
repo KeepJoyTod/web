@@ -1,8 +1,12 @@
 package com.web.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.web.interceptor.AuthInterceptor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
@@ -31,8 +35,6 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addInterceptor(authInterceptor)
                 .addPathPatterns("/v1/**")
                 // 排除不需要登录的接口
-                .excludePathPatterns("/v1/auth/**")
-                .excludePathPatterns("/v1/products/**")
-                .excludePathPatterns("/v1/payments/webhook"); // 支付回调不需要用户Token
+                .excludePathPatterns("/", "/v1/auth/**", "/v1/admin/auth/**", "/v1/products/**", "/v1/payments/webhook");
     }
 }

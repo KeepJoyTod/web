@@ -22,8 +22,8 @@ public class Coupon {
     private BigDecimal minAmount; // 最低消费门槛
     private BigDecimal discountAmount; // 优惠金额
     private String status; // VALID, USED, EXPIRED
-    private LocalDateTime startTime;
-    private LocalDateTime endTime;
-    private LocalDateTime createTime;
-    private LocalDateTime updateTime;
+    private java.util.Date startTime;
+    private java.util.Date endTime;
+    private java.util.Date createTime;
+    private java.util.Date updateTime;
 }
