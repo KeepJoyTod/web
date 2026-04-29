@@ -86,7 +86,7 @@ npm run dev
 - `back/`：后端服务（Spring Boot）
 - `frontend/`：前端项目（Vue）
 - `back/sql/`：数据库建表与种子数据脚本
-
+- `prometheus/`：Prometheus 监控配置
 ## 环境要求
 
 - JDK 17
@@ -97,15 +97,10 @@ npm run dev
 ## 数据库初始化
 
 1. 创建数据库 `web`
-2. 依次执行以下脚本（推荐顺序）：
 
-- `back/sql/schema_v1.sql`
-- `back/sql/schema_v2_address.sql`
-- `back/sql/schema_v3_payment.sql`
-- `back/sql/schema_v4_marketing_aftersales.sql`
-- `back/sql/schema_v5_products_tags.sql`
-- `back/sql/seed_demo.sql`
-- `back/sql/seed_products_categories_1_8.sql`
+   
+
+
 
 说明：
 
@@ -146,6 +141,14 @@ mvn spring-boot:run
 ```bash
 npm install
 npm run dev
+
+### Actuator 监控端点
+
+后端已集成 Spring Boot Actuator，用于监控和管理应用：
+
+- 健康检查：`http://localhost:8080/api/actuator/health`
+- Prometheus 指标：`http://localhost:8080/api/actuator/prometheus`
+- 所有端点：`http://localhost:8080/api/actuator`
 ```
 
 前端默认地址：
@@ -164,6 +167,65 @@ npm run dev
 - 映射规则：`frontend/src/lib/productCovers.ts`
 - 详情页图片展示为“居中完整（contain）”，避免裁切
 
+
+## 监控体系（Prometheus + Grafana）
+
+项目已集成完整的监控体系，用于实时监控应用性能、JVM 状态、数据库连接等。
+
+### 组件说明
+
+| 组件 | 作用 |
+|------|------|
+| Spring Boot Actuator | 暴露应用健康状态和指标 |
+| Micrometer | 指标收集库 |
+| Prometheus | 时序数据库，存储和查询指标 |
+| Grafana | 可视化展示，创建仪表板 |
+
+### 启动监控服务
+
+确保 Docker 已启动，然后在项目根目录执行：
+
+```bash
+docker-compose up -d
+```
+
+这将启动：
+- Prometheus（端口 9090）
+- Grafana（端口 3000）
+
+### 访问地址
+
+| 服务 | 地址 | 默认账号密码 |
+|------|------|-------------|
+| **Grafana** | http://localhost:3000 | admin / admin |
+| **Prometheus** | http://localhost:9090 | 无需登录 |
+
+### Grafana 配置步骤
+
+1. 打开 http://localhost:3000 并登录（admin / admin）
+2. 添加 Prometheus 数据源：
+   - 点击左侧菜单 **Connections** → **Data sources**
+   - 点击 **Add data source**
+   - 选择 **Prometheus**
+   - URL 填写：`http://prometheus:9090`
+   - 点击 **Save & test**
+3. 导入预配置的仪表板（推荐）：
+   - JVM (Micrometer)：ID `4701`
+   - Spring Boot Statistics：ID `10280`
+   - HikariCP Connection Pool：ID `10856`
+
+### 主要监控指标
+
+- JVM 内存使用、GC 次数、线程数
+- HTTP 请求响应时间、QPS、错误率
+- HikariCP 数据库连接池状态
+- Redis 缓存命中率
+
+### 停止监控服务
+
+```bash
+docker-compose down
+```
 若外链图片加载失败，会自动回退到 SVG 占位图，避免页面出现空白封面。
 
 ## 常用页面文件（前端）
@@ -501,3 +563,7 @@ mvn -Dmaven.repo.local="$env:USERPROFILE\.m2\repository" -DskipTests spring-boot
 ```
 
 - 或检查你本机 `~/.m2/settings.xml` 中的 `localRepository` 配置，修改为可写目录后重试。
+
+### 3) 监控相关问题
+
+详细的监控配置说明请参考 `docs/监控体系配置说明.md`。
