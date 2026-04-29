@@ -74,7 +74,6 @@ type Product = {
 
   originalPrice: number
 
-  price: number
 
   skus: Sku[]
 }
@@ -379,7 +378,14 @@ const priceText = computed(() => {
 
   if (sku) return priceFmt.format(sku.price)
 
-  return priceFmt.format(p.price)
+   const min = Math.min(...p.skus.map((s) => s.price))
+
+  const max = Math.max(...p.skus.map((s) => s.price))
+
+  if (min === max) return priceFmt.format(min)
+
+  return `${priceFmt.format(min)} - ${priceFmt.format(max)}`
+
 })
 
 
@@ -682,7 +688,7 @@ const load = async () => {
 
       originalPrice,
 
-      price,
+  
 
       // 如果后端有 SKUs 则使用，否则使用基础价格和库存作为默认 SKU
 
