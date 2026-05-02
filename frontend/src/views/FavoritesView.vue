@@ -3,7 +3,6 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import UiEmptyState from '../components/ui/UiEmptyState.vue'
-import { useCartStore } from '../stores/cart'
 import { useFavoritesStore } from '../stores/favorites'
 import { useToastStore } from '../stores/toast'
 
@@ -15,7 +14,6 @@ import starIconUrl from '../assets/figma/favorites/star.svg'
 
 const router = useRouter()
 const favorites = useFavoritesStore()
-const cart = useCartStore()
 const toast = useToastStore()
 
 onMounted(() => {
@@ -53,23 +51,16 @@ const goProduct = (productId: string) => {
 const addToCart = (favId: string) => {
   const it = favorites.items.find((x) => x.favId === favId)
   if (!it) return
-  cart.addItem({
-    productId: it.productId,
-    skuId: 'default',
-    title: it.title,
-    cover: it.cover,
-    price: it.price,
-    qty: 1,
-  })
-  toast.push({ type: 'success', message: '已加入购物车' })
+  router.push({ name: 'productDetail', params: { id: it.productId } })
+  toast.push({ type: 'info', message: '请选择规格后加入购物车' })
 }
 
 const bulkAdd = () => {
   if (selected.value.size === 0) return
-  for (const favId of selected.value) {
-    addToCart(favId)
-  }
-  toast.push({ type: 'success', message: `已加购 ${selected.value.size} 件` })
+  const first = favorites.items.find((x) => selected.value.has(x.favId))
+  if (!first) return
+  router.push({ name: 'productDetail', params: { id: first.productId } })
+  toast.push({ type: 'info', message: '请选择规格后加入购物车' })
 }
 
 const removeOne = (favId: string) => {
@@ -122,7 +113,7 @@ const bulkRemove = () => {
         </button>
         <div class="bulkActions">
           <button class="bulkAdd" type="button" :disabled="selectedCount === 0" @click="bulkAdd">
-            加购 ({{ selectedCount }})
+          选规格 ({{ selectedCount }})
           </button>
           <button class="bulkRemove" type="button" :disabled="selectedCount === 0" @click="bulkRemove">
             移除 ({{ selectedCount }})
@@ -167,7 +158,7 @@ const bulkRemove = () => {
             <div class="actions">
               <button class="addBtn" type="button" @click="addToCart(it.favId)">
                 <img class="cartIcon" :src="cartIconUrl" alt="" aria-hidden="true" />
-                <span>加购</span>
+                <span>选规格</span>
               </button>
               <button class="removeBtn" type="button" @click="removeOne(it.favId)" aria-label="移除收藏">
                 <img class="removeIcon" :src="removeIconUrl" alt="" aria-hidden="true" />
@@ -182,7 +173,7 @@ const bulkRemove = () => {
         <ul class="tipsList">
           <li class="tip">收藏的商品会在这里保存，方便随时查看</li>
           <li class="tip">商品价格变动时，我们会及时通知您</li>
-          <li class="tip">点击"加购"可快速将商品加入购物车</li>
+          <li class="tip">点击"选规格"可进入商品详情选择规格</li>
         </ul>
       </section>
     </main>

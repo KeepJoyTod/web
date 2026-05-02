@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 @RestController
@@ -205,12 +206,53 @@ public class AdminProductController {
             ProductSku sku = new ProductSku();
             sku.setProductId(productId);
             Object attrs = itemMap.get("attrs");
-            sku.setAttrs(attrs instanceof String ? attrs.toString() : JSONUtil.toJsonStr(attrs == null ? Map.of() : attrs));
+            sku.setAttrs(normalizeSkuAttrs(attrs));
             sku.setPrice(price);
             sku.setStock(stock);
             skus.add(sku);
         }
         return skus;
+    }
+
+    private String normalizeSkuAttrs(Object attrs) {
+        if (attrs == null) {
+            return "{}";
+        }
+        if (attrs instanceof String value) {
+            if (value.isBlank()) {
+                return "{}";
+            }
+            try {
+                return JSONUtil.toJsonStr(normalizeSkuAttrMap(JSONUtil.parseObj(value)));
+            } catch (Exception e) {
+                throw new BusinessException("VALIDATION_FAILED", "SKU attrs 必须是合法 JSON 对象");
+            }
+        }
+        if (!(attrs instanceof Map<?, ?> attrsMap)) {
+            throw new BusinessException("VALIDATION_FAILED", "SKU attrs 必须是对象");
+        }
+        return JSONUtil.toJsonStr(normalizeSkuAttrMap(attrsMap));
+    }
+
+    private Map<String, Object> normalizeSkuAttrMap(Map<?, ?> attrs) {
+        Map<String, Object> sorted = new TreeMap<>();
+        for (Map.Entry<?, ?> entry : attrs.entrySet()) {
+            String key = entry.getKey() == null ? "" : entry.getKey().toString().trim();
+            if (key.isBlank()) {
+                throw new BusinessException("VALIDATION_FAILED", "SKU attrs 规格名不能为空");
+            }
+
+            Object value = entry.getValue();
+            if (value == null || value.toString().isBlank()) {
+                throw new BusinessException("VALIDATION_FAILED", "SKU attrs 规格值不能为空");
+            }
+
+            if (sorted.containsKey(key)) {
+                throw new BusinessException("VALIDATION_FAILED", "SKU attrs 规格名重复");
+            }
+            sorted.put(key, value instanceof String text ? text.trim() : value);
+        }
+        return new LinkedHashMap<>(sorted);
     }
 
     private Product toProduct(Map<String, Object> body) {

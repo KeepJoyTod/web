@@ -43,6 +43,58 @@ CALL add_column_if_missing('aftersales', 'admin_remark',
 
 DROP PROCEDURE IF EXISTS add_column_if_missing;
 
+CREATE TABLE IF NOT EXISTS admin_permissions (
+  id bigint(20) NOT NULL AUTO_INCREMENT,
+  code varchar(64) NOT NULL COMMENT '权限编码',
+  name varchar(128) NOT NULL COMMENT '权限名称',
+  create_time datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_admin_permission_code (code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='后台权限表';
+
+CREATE TABLE IF NOT EXISTS admin_role_permissions (
+  id bigint(20) NOT NULL AUTO_INCREMENT,
+  role varchar(32) NOT NULL COMMENT '角色',
+  permission_code varchar(64) NOT NULL COMMENT '权限编码',
+  create_time datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_role_permission (role, permission_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='后台角色权限表';
+
+CREATE TABLE IF NOT EXISTS admin_operation_logs (
+  id bigint(20) NOT NULL AUTO_INCREMENT,
+  admin_id bigint(20) DEFAULT NULL COMMENT '管理员ID',
+  admin_account varchar(64) DEFAULT NULL COMMENT '管理员账号',
+  role varchar(32) DEFAULT NULL COMMENT '角色',
+  permission_code varchar(64) DEFAULT NULL COMMENT '权限编码',
+  method varchar(16) NOT NULL COMMENT 'HTTP方法',
+  path varchar(255) NOT NULL COMMENT '请求路径',
+  action varchar(128) DEFAULT NULL COMMENT '操作说明',
+  status varchar(16) NOT NULL COMMENT 'SUCCESS/FAILED',
+  duration_ms bigint(20) DEFAULT NULL COMMENT '耗时毫秒',
+  error_message varchar(512) DEFAULT NULL COMMENT '错误信息',
+  ip varchar(64) DEFAULT NULL COMMENT '客户端IP',
+  create_time datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_admin_create_time (admin_id, create_time),
+  KEY idx_permission_create_time (permission_code, create_time),
+  KEY idx_status_create_time (status, create_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='后台操作日志';
+
+INSERT INTO admin_permissions(code, name) VALUES
+('DASHBOARD_VIEW', '查看工作台'),
+('PRODUCT_MANAGE', '管理商品'),
+('CATEGORY_MANAGE', '管理分类'),
+('ORDER_MANAGE', '管理订单'),
+('AFTERSALE_MANAGE', '管理售后'),
+('USER_MANAGE', '管理用户'),
+('OPERATION_LOG_VIEW', '查看操作日志')
+ON DUPLICATE KEY UPDATE name = VALUES(name);
+
+INSERT INTO admin_role_permissions(role, permission_code)
+SELECT 'ADMIN', code FROM admin_permissions
+ON DUPLICATE KEY UPDATE permission_code = VALUES(permission_code);
+
 UPDATE users SET role = 'USER' WHERE role IS NULL OR role = '';
 UPDATE users SET status = 1 WHERE status IS NULL;
 

@@ -4,7 +4,6 @@ import { useRoute, useRouter } from 'vue-router'
 
 import UiButton from '../components/ui/UiButton.vue'
 import UiEmptyState from '../components/ui/UiEmptyState.vue'
-import { useCartStore } from '../stores/cart'
 import { useToastStore } from '../stores/toast'
 import { api } from '../lib/api'
 
@@ -29,7 +28,6 @@ type Category = {
 
 const route = useRoute()
 const router = useRouter()
-const cart = useCartStore()
 const toast = useToastStore()
 
 const categories = ref<Category[]>([
@@ -116,9 +114,12 @@ const goProduct = (p: Product) => {
   router.push({ name: 'productDetail', params: { id: p.id } })
 }
 
-const addToCart = (p: Product) => {
-  cart.addItem({ productId: p.id, skuId: 'default', title: p.title, price: p.price, qty: 1, cover: p.cover })
-  toast.push({ type: 'success', message: '已加入购物车' })
+const addToCart = (p: Product) => {
+
+  router.push({ name: 'productDetail', params: { id: p.id } })
+
+  toast.push({ type: 'info', message: '请选择规格后加入购物车' })
+
 }
 
 const categoryIdMap: Record<string, number> = {
@@ -281,7 +282,7 @@ watch(active, () => {
             </div>
           </button>
           <div class="actions">
-            <UiButton size="sm" type="button" @click="addToCart(p)">加购</UiButton>
+            <UiButton size="sm" type="button" @click="addToCart(p)">选规格</UiButton>
             <UiButton size="sm" type="button" @click="goProduct(p)">查看</UiButton>
           </div>
         </article>

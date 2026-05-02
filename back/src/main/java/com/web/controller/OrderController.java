@@ -2,6 +2,7 @@ package com.web.controller;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.map.MapUtil;
+import com.web.exception.BusinessException;
 import com.web.interceptor.AuthInterceptor;
 import com.web.pojo.Order;
 import com.web.pojo.OrderItem;
@@ -58,6 +59,12 @@ public class OrderController {
                     .put("data", orderMap)
                     .build());
                     
+        } catch (BusinessException e) {
+            return ResponseEntity.ok(MapUtil.builder(new java.util.HashMap<String, Object>())
+                    .put("code", 400)
+                    .put("message", e.getMessage())
+                    .put("errorCode", e.getCode())
+                    .build());
         } catch (Exception e) {
             return ResponseEntity.ok(MapUtil.builder(new java.util.HashMap<String, Object>())
                     .put("code", 500)

@@ -6,7 +6,6 @@ import { useRouter } from 'vue-router'
 
 
 
-import { useCartStore } from '../stores/cart'
 import { api } from '../lib/api'
 import UiPageHeader from '../components/ui/UiPageHeader.vue'
 
@@ -42,8 +41,6 @@ type Product = {
 
 const router = useRouter()
 
-const cart = useCartStore()
-
 
 
 const state = ref<LoadState>('loading')
@@ -61,10 +58,6 @@ const selectedBrands = ref<string[]>([])
 const minPrice = ref<string>('')
 
 const maxPrice = ref<string>('')
-
-
-
-const added = ref<Record<string, boolean>>({})
 
 
 
@@ -227,33 +220,7 @@ const goProduct = (p: Product) => {
 
 
 const addToCart = async (p: Product) => {
-
-  cart.addItem({
-
-    productId: p.id,
-
-    skuId: 'default',
-
-    title: p.title,
-
-    price: p.price,
-
-    qty: 1,
-
-    cover: p.cover,
-
-  })
-
-  added.value = { ...added.value, [p.id]: true }
-
-  await new Promise((r) => window.setTimeout(r, 900))
-
-  const copy = { ...added.value }
-
-  delete copy[p.id]
-
-  added.value = copy
-
+  await router.push({ name: 'productDetail', params: { id: p.id } })
 }
 
 
@@ -462,9 +429,7 @@ onMounted(() => {
 
                 <button class="cartBtn" type="button" @click.stop="addToCart(p)">
 
-                  <span v-if="added[p.id]">已加入</span>
-
-                  <span v-else>加入购物车</span>
+                选规格
 
                 </button>
 

@@ -24,17 +24,42 @@ const openProductDetail = async (page: Page, productId: string) => {
 
 const selectFirstAvailableSku = async (page: Page) => {
   await test.step('选择可用规格', async () => {
-    const groups = page.locator('.skuGroup')
-    const groupCount = await groups.count()
+    const btnAdd = page.locator('.btnAdd')
+    const btnBuy = page.locator('.btnBuy')
 
-    for (let i = 0; i < groupCount; i += 1) {
-      const option = groups.nth(i).locator('.skuBtn:not([disabled])').first()
-      await expect(option).toBeVisible()
-      await option.click()
+    for (let pass = 0; pass < 10; pass += 1) {
+      if (await btnAdd.isEnabled()) {
+        break
+      }
+
+      const groups = page.locator('.skuGroup')
+      const groupCount = await groups.count()
+      let clicked = false
+
+      for (let i = 0; i < groupCount; i += 1) {
+        const group = groups.nth(i)
+        if ((await group.locator('.skuBtn.on').count()) > 0) {
+          continue
+        }
+
+        const option = group.locator('.skuBtn:not([disabled])').first()
+        if ((await option.count()) === 0) {
+          continue
+        }
+
+        await expect(option).toBeVisible()
+        await option.click()
+        clicked = true
+        break
+      }
+
+      if (!clicked) {
+        break
+      }
     }
 
-    await expect(page.locator('.btnAdd')).toBeEnabled()
-    await expect(page.locator('.btnBuy')).toBeEnabled()
+    await expect(btnAdd).toBeEnabled()
+    await expect(btnBuy).toBeEnabled()
   })
 }
 

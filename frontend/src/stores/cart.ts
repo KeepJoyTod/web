@@ -49,15 +49,6 @@ export const useCartStore = defineStore('cart', () => {
 
     const res = await api.get('/v1/cart')
     const list = Array.isArray(res.data?.data) ? res.data.data : []
-    const serverByProductId = new Map<number, { id: string; quantity: number }>()
-    for (const x of list) {
-      const pid = Number((x as any)?.productId)
-      const id = (x as any)?.id
-      const q = Number((x as any)?.quantity)
-      if (!Number.isFinite(pid) || id == null || !Number.isFinite(q)) continue
-      serverByProductId.set(pid, { id: String(id), quantity: q })
-    }
-
     for (const it of local) {
       const pid = Number(it.productId)
       if (!Number.isFinite(pid)) continue
@@ -105,7 +96,8 @@ export const useCartStore = defineStore('cart', () => {
       .get('/v1/cart')
       .then((res) => {
         const list = Array.isArray(res.data?.data) ? res.data.data : []
-        const found = list.find((x: any) => Number(x.productId) === pid)
+        const skuId = target.skuId && target.skuId !== 'default' ? Number(target.skuId) : null
+        const found = list.find((x: any) => Number(x.productId) === pid && (skuId ? Number(x.skuId) === skuId : !x.skuId))
         if (found && found.id != null) {
           return api.put(`/v1/cart/items/${encodeURIComponent(found.id)}`, { quantity: target.qty })
         }
@@ -124,7 +116,8 @@ export const useCartStore = defineStore('cart', () => {
       .get('/v1/cart')
       .then((res) => {
         const list = Array.isArray(res.data?.data) ? res.data.data : []
-        const found = list.find((x: any) => Number(x.productId) === pid)
+        const skuId = target.skuId && target.skuId !== 'default' ? Number(target.skuId) : null
+        const found = list.find((x: any) => Number(x.productId) === pid && (skuId ? Number(x.skuId) === skuId : !x.skuId))
         if (found && found.id != null) {
           return api.delete(`/v1/cart/items/${encodeURIComponent(found.id)}`)
         }

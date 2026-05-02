@@ -10,6 +10,7 @@
     <select id="getByUserIdAndProductId" resultType="com.web.pojo.CartItem">
         SELECT * FROM cart_items WHERE user_id = #{userId} AND product_id = #{productId} 
         <if test="skuId != null"> AND sku_id = #{skuId} </if>
+        <if test="skuId == null"> AND sku_id IS NULL </if>
         LIMIT 1
     </select>
 

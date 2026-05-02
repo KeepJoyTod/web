@@ -31,6 +31,15 @@ public interface ProductMapper {
     // 获取特定 SKU
     ProductSku getSkuById(Long skuId);
 
+    // 获取指定商品下的 SKU，避免跨商品错配
+    ProductSku getSkuByIdAndProductId(@Param("skuId") Long skuId, @Param("productId") Long productId);
+
     // 更新 SKU (用于扣减库存)
     int updateSku(ProductSku sku);
+
+    int decreaseSkuStock(@Param("skuId") Long skuId, @Param("productId") Long productId, @Param("quantity") Integer quantity);
+
+    int decreaseProductStock(@Param("productId") Long productId, @Param("quantity") Integer quantity);
+
+    int syncProductStockFromSkus(@Param("productId") Long productId);
 }

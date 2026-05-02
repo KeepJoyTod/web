@@ -50,7 +50,12 @@ public class ProductServiceImpl implements ProductService {
             Map<String, Object> m = BeanUtil.beanToMap(sku, false, true);
             // 将数据库存储的 JSON 字符串转为 Map 对象
             if (sku.getAttrs() != null && !sku.getAttrs().isEmpty()) {
-                m.put("attrs", JSONUtil.parseObj(sku.getAttrs()));
+                try {
+                    m.put("attrs", JSONUtil.parseObj(sku.getAttrs()));
+                } catch (Exception e) {
+                    m.put("attrs", Map.of());
+                    m.put("attrsInvalid", true);
+                }
             } else {
                 m.put("attrs", Map.of());
             }

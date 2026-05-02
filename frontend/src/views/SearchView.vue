@@ -5,7 +5,6 @@ import { useRoute, useRouter } from 'vue-router'
 import UiButton from '../components/ui/UiButton.vue'
 import UiEmptyState from '../components/ui/UiEmptyState.vue'
 import UiInput from '../components/ui/UiInput.vue'
-import { useCartStore } from '../stores/cart'
 import { api } from '../lib/api'
 import { useToastStore } from '../stores/toast'
 
@@ -25,7 +24,6 @@ type Product = {
 
 const route = useRoute()
 const router = useRouter()
-const cart = useCartStore()
 const toast = useToastStore()
 
 const state = ref<LoadState>('loading')
@@ -82,9 +80,12 @@ const goProduct = (p: Product) => {
   router.push({ name: 'productDetail', params: { id: p.id } })
 }
 
-const addToCart = (p: Product) => {
-  cart.addItem({ productId: p.id, skuId: 'default', title: p.title, price: p.price, qty: 1, cover: p.cover })
-  toast.push({ type: 'success', message: '已加入购物车' })
+const addToCart = (p: Product) => {
+
+  router.push({ name: 'productDetail', params: { id: p.id } })
+
+  toast.push({ type: 'info', message: '请选择规格后加入购物车' })
+
 }
 
 const load = async () => {
@@ -159,7 +160,7 @@ onMounted(() => {
             </div>
           </button>
           <div class="actions">
-            <UiButton size="sm" type="button" @click="addToCart(p)">加购</UiButton>
+            <UiButton size="sm" type="button" @click="addToCart(p)">选规格</UiButton>
             <UiButton size="sm" type="button" @click="router.push({ name: 'productDetail', params: { id: p.id } })">
               查看
             </UiButton>

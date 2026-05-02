@@ -16,6 +16,7 @@ public class AuthInterceptor implements HandlerInterceptor {
 
     private static final ThreadLocal<Long> CURRENT_USER = new ThreadLocal<>();
     private static final ThreadLocal<String> CURRENT_ROLE = new ThreadLocal<>();
+    private static final ThreadLocal<String> CURRENT_ACCOUNT = new ThreadLocal<>();
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
@@ -48,8 +49,10 @@ public class AuthInterceptor implements HandlerInterceptor {
 
             Long userId = Long.valueOf(userIdPayload.toString());
             String role = jwt.getPayload("role") == null ? "USER" : jwt.getPayload("role").toString();
+            String account = jwt.getPayload("account") == null ? null : jwt.getPayload("account").toString();
             CURRENT_USER.set(userId);
             CURRENT_ROLE.set(role);
+            CURRENT_ACCOUNT.set(account);
 
             if (isAdminPath(request) && !"ADMIN".equalsIgnoreCase(role)) {
                 throw new BusinessException("FORBIDDEN", "无管理员权限");
@@ -67,6 +70,7 @@ public class AuthInterceptor implements HandlerInterceptor {
     public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) {
         CURRENT_USER.remove();
         CURRENT_ROLE.remove();
+        CURRENT_ACCOUNT.remove();
     }
 
     public static Long getCurrentUserId() {
@@ -84,6 +88,10 @@ public class AuthInterceptor implements HandlerInterceptor {
 
     public static boolean isCurrentAdmin() {
         return "ADMIN".equalsIgnoreCase(getCurrentRole());
+    }
+
+    public static String getCurrentAccount() {
+        return CURRENT_ACCOUNT.get();
     }
 
     private boolean isAdminPath(HttpServletRequest request) {

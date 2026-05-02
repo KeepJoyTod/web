@@ -1,6 +1,7 @@
 package com.web.service.impl;
 
 import cn.hutool.core.util.IdUtil;
+import com.web.exception.BusinessException;
 import com.web.mapper.CartItemMapper;
 import com.web.mapper.OrderItemMapper;
 import com.web.mapper.OrderMapper;
@@ -63,7 +64,7 @@ public class OrderServiceImpl implements OrderService {
         // 1. 获取购物车选中的商品
         List<CartItem> cartItems = cartItemMapper.getListByUserId(userId);
         if (cartItems == null || cartItems.isEmpty()) {
-            throw new RuntimeException("Cart is empty");
+            throw new BusinessException("CART_EMPTY", "购物车为空");
         }
         
         List<CartItem> checkedItems = cartItems.stream()
@@ -78,38 +79,45 @@ public class OrderServiceImpl implements OrderService {
         
         // 2. 预占库存与计算价格
         for (CartItem cartItem : checkedItems) {
-            Product product = productMapper.getById(cartItem.getProductId());
-            if (product == null) {
-                throw new RuntimeException("Product not found: " + cartItem.getProductId());
+            if (cartItem.getQuantity() == null || cartItem.getQuantity() <= 0) {
+                throw new BusinessException("INVALID_QUANTITY", "商品数量不正确");
             }
 
-            // 如果有 SKU，扣减 SKU 库存
+            Product product = productMapper.getById(cartItem.getProductId());
+            if (product == null) {
+                throw new BusinessException("PRODUCT_NOT_FOUND", "商品不存在: " + cartItem.getProductId());
+            }
+
+            BigDecimal unitPrice = product.getPrice();
+
             if (cartItem.getSkuId() != null) {
-                ProductSku sku = productMapper.getSkuById(cartItem.getSkuId());
-                if (sku == null || sku.getStock() < cartItem.getQuantity()) {
-                    throw new RuntimeException("Insufficient stock for SKU: " + cartItem.getSkuId());
+                ProductSku sku = productMapper.getSkuByIdAndProductId(cartItem.getSkuId(), cartItem.getProductId());
+                if (sku == null) {
+                    throw new BusinessException("SKU_NOT_FOUND", "商品规格不存在或不属于该商品: " + cartItem.getSkuId());
                 }
-                sku.setStock(sku.getStock() - cartItem.getQuantity());
-                productMapper.updateSku(sku);
+                if (productMapper.decreaseSkuStock(cartItem.getSkuId(), cartItem.getProductId(), cartItem.getQuantity()) <= 0) {
+                    throw new BusinessException("INSUFFICIENT_STOCK", "商品规格库存不足: " + cartItem.getSkuId());
+                }
+                productMapper.syncProductStockFromSkus(cartItem.getProductId());
+                unitPrice = sku.getPrice();
             } else {
-                // 如果没有 SKU，扣减 SPU 基础库存
-                if (product.getStock() < cartItem.getQuantity()) {
-                    throw new RuntimeException("Insufficient stock for product: " + cartItem.getProductId());
+                List<ProductSku> skus = productMapper.getSkusByProductId(cartItem.getProductId());
+                if (skus != null && !skus.isEmpty()) {
+                    throw new BusinessException("SKU_REQUIRED", "请选择商品规格: " + cartItem.getProductId());
+                }
+                if (productMapper.decreaseProductStock(cartItem.getProductId(), cartItem.getQuantity()) <= 0) {
+                    throw new BusinessException("INSUFFICIENT_STOCK", "商品库存不足: " + cartItem.getProductId());
                 }
             }
-            
-            // 扣减 SPU 总库存
-            product.setStock(product.getStock() - cartItem.getQuantity());
-            productMapper.update(product);
-            
-            BigDecimal itemTotal = product.getPrice().multiply(new BigDecimal(cartItem.getQuantity()));
+
+            BigDecimal itemTotal = unitPrice.multiply(new BigDecimal(cartItem.getQuantity()));
             totalAmount = totalAmount.add(itemTotal);
             
             OrderItem orderItem = new OrderItem();
             orderItem.setProductId(product.getId());
             orderItem.setSkuId(cartItem.getSkuId());
             orderItem.setProductName(product.getName());
-            orderItem.setPrice(product.getPrice());
+            orderItem.setPrice(unitPrice);
             orderItem.setQuantity(cartItem.getQuantity());
             orderItem.setTotalAmount(itemTotal);
             orderItem.setProductImage("/product_" + product.getId() + ".jpg"); // 设置商品图片

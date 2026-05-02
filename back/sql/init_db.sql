@@ -14,7 +14,8 @@ CREATE TABLE `categories` (
   `name` varchar(128) NOT NULL COMMENT '类目名称',
   `parent_id` bigint(20) DEFAULT '0' COMMENT '父类目ID',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  KEY `idx_parent_id` (`parent_id`, `id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='商品类目表';
 
 -- ----------------------------
@@ -33,7 +34,9 @@ CREATE TABLE `users` (
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_account` (`account`)
+  UNIQUE KEY `uk_account` (`account`),
+  KEY `idx_role_status_create_time` (`role`, `status`, `create_time`),
+  KEY `idx_status_create_time` (`status`, `create_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户表';
 
 -- 商品表 (SPU)
@@ -56,6 +59,9 @@ CREATE TABLE `products` (
   KEY `idx_category_id` (`category_id`),
   KEY `idx_status` (`status`),
   KEY `idx_create_time` (`create_time`),
+  KEY `idx_status_create_time` (`status`, `create_time`),
+  KEY `idx_category_status_create_time` (`category_id`, `status`, `create_time`),
+  KEY `idx_status_stock` (`status`, `stock`),
   FULLTEXT KEY `ft_name_description` (`name`, `description`) WITH PARSER ngram
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='商品表';
 
@@ -66,18 +72,21 @@ CREATE TABLE `product_media` (
   `url` varchar(512) NOT NULL COMMENT '图片URL',
   `sort_order` int(11) DEFAULT '0' COMMENT '排序',
   PRIMARY KEY (`id`),
-  KEY `idx_product_id` (`product_id`)
+  KEY `idx_product_id` (`product_id`),
+  KEY `idx_product_sort` (`product_id`, `sort_order`, `id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='商品媒体表';
 
 -- 商品 SKU 表 (规格)
 CREATE TABLE `product_skus` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `product_id` bigint(20) NOT NULL,
-  `attrs` varchar(512) DEFAULT '{}' COMMENT '规格属性 (JSON字符串)',
+  `attrs` varchar(512) NOT NULL DEFAULT '{}' COMMENT '规格属性 (JSON字符串)',
   `price` decimal(10,2) NOT NULL COMMENT '该规格价格',
   `stock` int(11) NOT NULL DEFAULT '0' COMMENT '该规格库存',
   PRIMARY KEY (`id`),
-  KEY `idx_product_id` (`product_id`)
+  UNIQUE KEY `uk_product_attrs` (`product_id`, `attrs`),
+  KEY `idx_product_id` (`product_id`),
+  CONSTRAINT `chk_product_skus_attrs_json` CHECK (json_valid(`attrs`) AND json_type(`attrs`) = 'OBJECT')
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='商品规格表';
 
 -- 用户收货地址表
@@ -92,7 +101,8 @@ CREATE TABLE `user_addresses` (
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  KEY `idx_user_id` (`user_id`)
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_user_default_create` (`user_id`, `is_default`, `create_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户收货地址表';
 
 -- 订单表
@@ -110,7 +120,9 @@ CREATE TABLE `orders` (
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_order_no` (`order_no`),
-  KEY `idx_user_create_time` (`user_id`, `create_time`)
+  KEY `idx_user_create_time` (`user_id`, `create_time`),
+  KEY `idx_status_create_time` (`status`, `create_time`),
+  KEY `idx_create_time` (`create_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='订单表';
 
 -- 订单明细表
@@ -127,7 +139,8 @@ CREATE TABLE `order_items` (
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  KEY `idx_order_id` (`order_id`)
+  KEY `idx_order_id` (`order_id`),
+  KEY `idx_product_id` (`product_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='订单明细表';
 
 -- 购物车明细表
@@ -136,12 +149,17 @@ CREATE TABLE `cart_items` (
   `user_id` bigint(20) NOT NULL COMMENT '用户ID',
   `product_id` bigint(20) NOT NULL COMMENT '商品ID',
   `sku_id` bigint(20) DEFAULT NULL COMMENT '规格ID',
+  `sku_key` bigint(20) GENERATED ALWAYS AS (ifnull(`sku_id`, 0)) STORED COMMENT '规格唯一键',
   `quantity` int(11) NOT NULL DEFAULT '1' COMMENT '数量',
   `checked` tinyint(4) NOT NULL DEFAULT '1' COMMENT '是否选中: 0-否, 1-是',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  KEY `idx_user_id` (`user_id`)
+  UNIQUE KEY `uk_user_product_sku` (`user_id`, `product_id`, `sku_key`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_user_create_time` (`user_id`, `create_time`),
+  KEY `idx_user_product_sku` (`user_id`, `product_id`, `sku_id`),
+  KEY `idx_user_checked` (`user_id`, `checked`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='购物车明细表';
 
 -- 支付记录表
@@ -157,7 +175,8 @@ CREATE TABLE `payments` (
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_trade_id` (`trade_id`),
-  KEY `idx_order_id` (`order_id`)
+  KEY `idx_order_id` (`order_id`),
+  KEY `idx_order_create_time` (`order_id`, `create_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='支付记录表';
 
 -- 用户优惠券表
@@ -176,7 +195,8 @@ CREATE TABLE `coupons` (
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_code` (`code`),
-  KEY `idx_user_id` (`user_id`)
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_user_status_time` (`user_id`, `status`, `start_time`, `end_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户优惠券表';
 
 -- 售后申请表
@@ -195,7 +215,9 @@ CREATE TABLE `aftersales` (
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_user_id` (`user_id`),
-  KEY `idx_order_id` (`order_id`)
+  KEY `idx_order_id` (`order_id`),
+  KEY `idx_user_create_time` (`user_id`, `create_time`),
+  KEY `idx_status_create_time` (`status`, `create_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='售后申请表';
 
 -- 商品评价表
@@ -211,7 +233,10 @@ CREATE TABLE `reviews` (
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_product_id` (`product_id`),
-  KEY `idx_user_id` (`user_id`)
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_order_id` (`order_id`),
+  KEY `idx_product_create_time` (`product_id`, `create_time`),
+  KEY `idx_user_product_order_create` (`user_id`, `product_id`, `order_id`, `create_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='商品评价表';
 
 -- 商品收藏表
@@ -223,8 +248,69 @@ CREATE TABLE `favorites` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_user_product` (`user_id`, `product_id`),
   KEY `idx_user_id` (`user_id`),
-  KEY `idx_product_id` (`product_id`)
+  KEY `idx_product_id` (`product_id`),
+  KEY `idx_user_create_time` (`user_id`, `create_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='商品收藏表';
+
+-- 用户通知表
+CREATE TABLE `notifications` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `user_id` bigint(20) NOT NULL COMMENT '用户ID',
+  `type` varchar(32) NOT NULL COMMENT '通知类型',
+  `title` varchar(255) NOT NULL COMMENT '标题',
+  `content` text COMMENT '内容',
+  `related_id` varchar(64) DEFAULT NULL COMMENT '关联业务ID',
+  `is_read` tinyint(4) NOT NULL DEFAULT '0' COMMENT '是否已读: 0-否, 1-是',
+  `read_time` datetime DEFAULT NULL COMMENT '阅读时间',
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_user_create_time` (`user_id`, `create_time`),
+  KEY `idx_user_read` (`user_id`, `is_read`),
+  KEY `idx_related_id` (`related_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户通知表';
+
+-- 后台权限表
+CREATE TABLE `admin_permissions` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `code` varchar(64) NOT NULL COMMENT '权限编码',
+  `name` varchar(128) NOT NULL COMMENT '权限名称',
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_admin_permission_code` (`code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='后台权限表';
+
+-- 后台角色权限表
+CREATE TABLE `admin_role_permissions` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `role` varchar(32) NOT NULL COMMENT '角色',
+  `permission_code` varchar(64) NOT NULL COMMENT '权限编码',
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_role_permission` (`role`, `permission_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='后台角色权限表';
+
+-- 后台操作日志表
+CREATE TABLE `admin_operation_logs` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `admin_id` bigint(20) DEFAULT NULL COMMENT '管理员ID',
+  `admin_account` varchar(64) DEFAULT NULL COMMENT '管理员账号',
+  `role` varchar(32) DEFAULT NULL COMMENT '角色',
+  `permission_code` varchar(64) DEFAULT NULL COMMENT '权限编码',
+  `method` varchar(16) NOT NULL COMMENT 'HTTP方法',
+  `path` varchar(255) NOT NULL COMMENT '请求路径',
+  `action` varchar(128) DEFAULT NULL COMMENT '操作说明',
+  `status` varchar(16) NOT NULL COMMENT 'SUCCESS/FAILED',
+  `duration_ms` bigint(20) DEFAULT NULL COMMENT '耗时毫秒',
+  `error_message` varchar(512) DEFAULT NULL COMMENT '错误信息',
+  `ip` varchar(64) DEFAULT NULL COMMENT '客户端IP',
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_admin_create_time` (`admin_id`, `create_time`),
+  KEY `idx_permission_create_time` (`permission_code`, `create_time`),
+  KEY `idx_status_create_time` (`status`, `create_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='后台操作日志';
 
 -- ----------------------------
 -- 3. 初始数据填充
@@ -247,7 +333,20 @@ INSERT INTO `users`(`account`, `password`, `nickname`, `role`, `status`) VALUES
 ('user@example.com','e10adc3949ba59abbe56e057f20f883e','测试用户','USER',1),
 ('alice@example.com','e10adc3949ba59abbe56e057f20f883e','Alice','USER',1);
 
--- 3.3 商品数据（手机类，1-20）
+-- 3.3 后台权限数据
+INSERT INTO `admin_permissions`(`code`, `name`) VALUES
+('DASHBOARD_VIEW', '查看工作台'),
+('PRODUCT_MANAGE', '管理商品'),
+('CATEGORY_MANAGE', '管理分类'),
+('ORDER_MANAGE', '管理订单'),
+('AFTERSALE_MANAGE', '管理售后'),
+('USER_MANAGE', '管理用户'),
+('OPERATION_LOG_VIEW', '查看操作日志');
+
+INSERT INTO `admin_role_permissions`(`role`, `permission_code`)
+SELECT 'ADMIN', `code` FROM `admin_permissions`;
+
+-- 3.4 商品数据（手机类，1-20）
 INSERT INTO `products`(`category_id`, `name`, `description`, `tags`, `price`, `stock`, `status`) VALUES
 (1,'iPhone 15 Pro 128G','A17 Pro 芯片，旗舰性能','["旗舰"]',7999.00,100,1),
 (1,'iPhone 15 128G','A16 芯片，性能均衡','["性价比"]',5999.00,120,1),
@@ -993,13 +1092,13 @@ INSERT INTO `product_skus` (`product_id`, `attrs`, `price`, `stock`) VALUES
 
 -- 35. 海盗船 K70 键盘（外设）
 (35, '{"轴体":"樱桃红轴","颜色":"黑色"}', 899.00, 50),
-(35, '{"轴体":"樱桃银轴","RGB背光"}', 999.00, 40),
-(35, '{"轴体":"樱桃青轴","白色版"}', 899.00, 30),
+(35, '{"轴体":"樱桃银轴","背光":"RGB"}', 999.00, 40),
+(35, '{"轴体":"樱桃青轴","版本":"白色版"}', 899.00, 30),
 
 -- 36. 罗技 G Pro X Superlight（电竞鼠标）
 (36, '{"颜色":"黑色","重量":"63g"}', 899.00, 60),
 (36, '{"颜色":"白色","重量":"63g"}', 899.00, 50),
-(36, '{"颜色":"粉色","限量版"}', 999.00, 20),
+(36, '{"颜色":"粉色","版本":"限量版"}', 999.00, 20),
 
 -- 37. 惠普 星14（轻薄本）
 (37, '{"内存":"16GB","硬盘":"512GB","颜色":"银色"}', 4999.00, 60),
@@ -1017,9 +1116,9 @@ INSERT INTO `product_skus` (`product_id`, `attrs`, `price`, `stock`) VALUES
 (39, '{"尺寸":"27英寸","刷新率":"240Hz","颜色":"红色"}', 1699.00, 40),
 
 -- 40. 雷蛇 黑寡妇（键盘）
-(40, '{"轴体":"绿轴","RGB背光","颜色":"黑色"}', 799.00, 50),
-(40, '{"轴体":"黄轴","RGB背光","颜色":"白色"}', 799.00, 40),
-(40, '{"轴体":"橙轴","无背光","颜色":"黑色"}', 699.00, 60),
+(40, '{"轴体":"绿轴","背光":"RGB","颜色":"黑色"}', 799.00, 50),
+(40, '{"轴体":"黄轴","背光":"RGB","颜色":"白色"}', 799.00, 40),
+(40, '{"轴体":"橙轴","背光":"无","颜色":"黑色"}', 699.00, 60),
 
 
 
@@ -1232,7 +1331,7 @@ INSERT INTO `product_skus` (`product_id`, `attrs`, `price`, `stock`) VALUES
 -- 82. 衣物整理箱
 (82, '{"容量":"30L","颜色":"蓝色","折叠":"可折叠"}', 89.00, 350),
 (82, '{"容量":"50L","颜色":"灰色","折叠":"不可折叠"}', 119.00, 300),
-(82, '{"容量":"100L","颜色":"白色","带轮"}', 159.00, 250),
+(82, '{"容量":"100L","颜色":"白色","移动方式":"带轮"}', 159.00, 250),
 
 -- 83. 北欧风抱枕
 (83, '{"颜色":"灰色","形状":"方形","填充":"PP棉"}', 49.00, 500),
@@ -1257,17 +1356,17 @@ INSERT INTO `product_skus` (`product_id`, `attrs`, `price`, `stock`) VALUES
 -- 87. 厨房纸巾 6卷
 (87, '{"规格":"6卷装","层数":"2层","吸水":"强"}', 19.90, 700),
 (87, '{"规格":"12卷装","层数":"3层","吸水":"超强"}', 35.90, 500),
-(87, '{"规格":"6卷装","层数":"3层","加厚"}', 24.90, 600),
+(87, '{"规格":"6卷装","层数":"3层","厚度":"加厚"}', 24.90, 600),
 
 -- 88. 一次性手套 100只
 (88, '{"材质":"PE","尺寸":"均码","数量":"100只"}', 14.90, 1000),
 (88, '{"材质":"TPE","尺寸":"L码","数量":"200只"}', 29.90, 800),
-(88, '{"材质":"丁腈","尺寸":"M码","数量":"100只","加厚"}', 24.90, 600),
+(88, '{"材质":"丁腈","尺寸":"M码","数量":"100只","厚度":"加厚"}', 24.90, 600),
 
 -- 89. 多功能置物架
 (89, '{"层数":"3层","颜色":"黑色","材质":"碳钢"}', 129.00, 250),
 (89, '{"层数":"4层","颜色":"白色","材质":"不锈钢"}', 159.00, 200),
-(89, '{"层数":"2层","颜色":"银色","带挂钩"}', 99.00, 300),
+(89, '{"层数":"2层","颜色":"银色","配件":"带挂钩"}', 99.00, 300),
 
 -- 90. 密封保鲜盒
 (90, '{"容量":"500ml","颜色":"透明","材质":"玻璃"}', 39.90, 600),
@@ -1286,13 +1385,13 @@ INSERT INTO `product_skus` (`product_id`, `attrs`, `price`, `stock`) VALUES
 
 -- 93. 懒人抹布
 (93, '{"材质":"无纺布","数量":"50片","规格":"干湿两用"}', 9.90, 1300),
-(93, '{"材质":"木浆棉","数量":"30片","加厚"}', 14.90, 1000),
-(93, '{"材质":"竹纤维","数量":"40片","可水洗"}', 19.90, 900),
+(93, '{"材质":"木浆棉","数量":"30片","厚度":"加厚"}', 14.90, 1000),
+(93, '{"材质":"竹纤维","数量":"40片","清洁方式":"可水洗"}', 19.90, 900),
 
 -- 94. 墙面置物袋
-(94, '{"颜色":"米色","尺寸":"30cm","无痕钉"}', 29.90, 500),
-(94, '{"颜色":"灰色","尺寸":"40cm","挂钩式"}', 39.90, 450),
-(94, '{"颜色":"蓝色","尺寸":"50cm","吸盘式"}', 49.90, 400),
+(94, '{"颜色":"米色","尺寸":"30cm","安装方式":"无痕钉"}', 29.90, 500),
+(94, '{"颜色":"灰色","尺寸":"40cm","安装方式":"挂钩式"}', 39.90, 450),
+(94, '{"颜色":"蓝色","尺寸":"50cm","安装方式":"吸盘式"}', 49.90, 400),
 
 -- 95. 防滑衣架 20只
 (95, '{"颜色":"彩色","材质":"塑料","防滑":"硅胶"}', 19.90, 1000),
@@ -1312,7 +1411,7 @@ INSERT INTO `product_skus` (`product_id`, `attrs`, `price`, `stock`) VALUES
 -- 98. 擦窗器
 (98, '{"类型":"双面磁性","适用厚度":"≤20mm","颜色":"蓝色"}', 39.90, 350),
 (98, '{"类型":"伸缩杆","长度":"2m","颜色":"银色"}', 59.90, 300),
-(98, '{"类型":"电动","充电式","适用玻璃"}', 129.90, 200),
+(98, '{"类型":"电动","供电":"充电式","适用":"玻璃"}', 129.90, 200),
 
 -- 99. 桌面理线器
 (99, '{"颜色":"黑色","数量":"5个","背胶":"3M"}', 9.90, 800),
@@ -1348,7 +1447,7 @@ INSERT INTO `product_skus` (`product_id`, `attrs`, `price`, `stock`) VALUES
 -- 105. 清爽防晒乳 SPF50+
 (105, '{"规格":"50ml","肤质":"油性","质地":"清爽"}', 129.00, 200),
 (105, '{"规格":"80ml","肤质":"干性","质地":"保湿"}', 179.00, 180),
-(105, '{"规格":"30ml","肤质":"敏感肌","物理防晒"}', 99.00, 220),
+(105, '{"规格":"30ml","肤质":"敏感肌","防晒类型":"物理防晒"}', 99.00, 220),
 
 -- 106. 丝绒雾面口红
 (106, '{"色号":"#01 复古红","质地":"丝绒","持久":"8h"}', 139.00, 350),
@@ -1392,8 +1491,8 @@ INSERT INTO `product_skus` (`product_id`, `attrs`, `price`, `stock`) VALUES
 
 -- 114. 深度滋养发膜
 (114, '{"规格":"200g","发质":"受损","使用频率":"每周1-2次"}', 89.00, 240),
-(114, '{"规格":"500g","发质":"干枯","沙龙级"}', 159.00, 200),
-(114, '{"规格":"100g","发质":"染烫","旅行装"}', 49.00, 260),
+(114, '{"规格":"500g","发质":"干枯","版本":"沙龙级"}', 159.00, 200),
+(114, '{"规格":"100g","发质":"染烫","版本":"旅行装"}', 49.00, 260),
 
 -- 115. 旅行装洗护套装
 (115, '{"包含":"洗发+护发+沐浴","规格":"50ml×3","适用":"短途"}', 39.00, 550),
@@ -1423,7 +1522,7 @@ INSERT INTO `product_skus` (`product_id`, `attrs`, `price`, `stock`) VALUES
 -- 120. 香氛蜡烛礼盒
 (120, '{"香型":"玫瑰+茉莉","规格":"200g×2","燃烧时间":"40h"}', 199.00, 160),
 (120, '{"香型":"檀香+琥珀","规格":"300g×3","燃烧时间":"60h"}', 269.00, 140),
-(120, '{"香型":"无花果+雪松","规格":"100g×4","礼盒装"}', 229.00, 150),
+(120, '{"香型":"无花果+雪松","规格":"100g×4","包装":"礼盒装"}', 229.00, 150),
 
 -- 121. 每日坚果 750g
 (121, '{"包装":"混合果仁","规格":"750g","独立小包":"30袋"}', 89.00, 350),
@@ -1446,9 +1545,9 @@ INSERT INTO `product_skus` (`product_id`, `attrs`, `price`, `stock`) VALUES
 (124, '{"规格":"200g","包装":"礼盒","工艺":"冻干+酸奶涂层"}', 99.90, 200),
 
 -- 125. 黄油曲奇礼盒
-(125, '{"规格":"400g","口味":"原味","礼盒装"}', 49.90, 240),
-(125, '{"规格":"600g","口味":"巧克力味","礼盒装"}', 69.90, 220),
-(125, '{"规格":"800g","口味":"混合口味","铁盒装"}', 89.90, 200),
+(125, '{"规格":"400g","口味":"原味","包装":"礼盒装"}', 49.90, 240),
+(125, '{"规格":"600g","口味":"巧克力味","包装":"礼盒装"}', 69.90, 220),
+(125, '{"规格":"800g","口味":"混合口味","包装":"铁盒装"}', 89.90, 200),
 
 -- 126. 挂耳咖啡 20袋
 (126, '{"烘焙程度":"中度","风味":"坚果","规格":"20袋"}', 69.00, 280),
@@ -1473,7 +1572,7 @@ INSERT INTO `product_skus` (`product_id`, `attrs`, `price`, `stock`) VALUES
 -- 130. 浓缩奶茶液 6瓶装
 (130, '{"口味":"原味","规格":"6瓶×200ml","可兑":"牛奶"}', 39.90, 300),
 (130, '{"口味":"阿萨姆","规格":"6瓶×200ml","可兑":"水"}', 39.90, 280),
-(130, '{"口味":"锡兰","规格":"12瓶×200ml","家庭装"}', 69.90, 260),
+(130, '{"口味":"锡兰","规格":"12瓶×200ml","包装":"家庭装"}', 69.90, 260),
 
 -- 131. 东北大米 10kg
 (131, '{"品种":"长粒香","规格":"10kg","产地":"黑龙江"}', 89.00, 450),
@@ -1553,7 +1652,7 @@ INSERT INTO `product_skus` (`product_id`, `attrs`, `price`, `stock`) VALUES
 -- 146. 双人帐篷 防雨款
 (146, '{"颜色":"军绿","尺寸":"200×150cm","防水":"PU2000mm"}', 599.00, 160),
 (146, '{"颜色":"橙色","尺寸":"210×180cm","防水":"PU3000mm"}', 699.00, 140),
-(146, '{"颜色":"蓝色","尺寸":"200×150cm","四季通用"}', 649.00, 150),
+(146, '{"颜色":"蓝色","尺寸":"200×150cm","适用季节":"四季通用"}', 649.00, 150),
 
 -- 147. 便携折叠椅
 (147, '{"颜色":"军绿","材质":"牛津布","承重":"100kg"}', 129.00, 220),
@@ -2189,3 +2288,5 @@ INSERT INTO `reviews` (`user_id`, `order_id`, `product_id`, `rating`, `content`,
 -- product_id = 170 的两条评价
 (1339, 20250629, 170, 3, '普通，没有惊喜。', NULL, NOW(), NOW()),
 (1340, 20250630, 170, 5, '买对了，家人都说好。', NULL, NOW(), NOW());
+
+SET FOREIGN_KEY_CHECKS = 1;

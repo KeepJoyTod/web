@@ -15,6 +15,7 @@ type ProductFixture = {
   title: string
   price: number
   stock: number
+  skuId: string
 }
 
 type CartItemFixture = {
@@ -65,7 +66,7 @@ const getAvailableProduct = async (request: APIRequestContext): Promise<ProductF
 
   const body = await response.json()
   const products = Array.isArray(body.data) ? body.data : []
-  const sorted = products
+  const candidates = products
     .map((item: any) => ({
       id: String(item.id),
       title: String(item.name ?? item.title ?? `Product ${item.id}`),
@@ -75,14 +76,32 @@ const getAvailableProduct = async (request: APIRequestContext): Promise<ProductF
     .filter((item: ProductFixture) => item.id && item.price > 0 && item.stock > 0)
     .sort((a: ProductFixture, b: ProductFixture) => b.stock - a.stock)
 
-  expect(sorted.length).toBeGreaterThan(0)
-  return sorted[0]
+  expect(candidates.length).toBeGreaterThan(0)
+
+  for (const product of candidates) {
+    const detailResponse = await request.get(`${apiURL}/api/v1/products/${product.id}`)
+    if (!detailResponse.ok()) continue
+
+    const detail = await detailResponse.json()
+    const skus = Array.isArray(detail.data?.skus) ? detail.data.skus : []
+    const sku = skus.find((item: any) => Number(item.stock ?? 0) > 0 && item.id != null)
+    if (!sku) continue
+
+    return {
+      ...product,
+      skuId: String(sku.id),
+      price: Number(sku.price ?? product.price),
+      stock: Number(sku.stock ?? product.stock),
+    }
+  }
+
+  throw new Error('No product with available SKU found')
 }
 
 const toCartItem = (product: ProductFixture, qty = 1): CartItemFixture => ({
   itemId: `ci_checkout_${product.id}_${Date.now()}`,
   productId: product.id,
-  skuId: 'default',
+  skuId: product.skuId,
   title: product.title,
   price: product.price,
   qty,
@@ -121,7 +140,7 @@ const addServerCartItem = async (
 ) => {
   const response = await request.post(`${apiURL}/api/v1/cart/items`, {
     headers: authHeaders(session.token),
-    data: { productId: Number(product.id), skuId: 'default', quantity },
+    data: { productId: Number(product.id), skuId: product.skuId, quantity },
   })
   await expect(response).toBeOK()
   const body = await response.json()
@@ -218,7 +237,7 @@ test.describe('checkout', () => {
     await expect(response).toBeOK()
 
     const body = await response.json()
-    expect(body.code).toBe(500)
+    expect(body.code).toBe(400)
     expect(body.message).toBeTruthy()
   })
 

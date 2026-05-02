@@ -342,9 +342,51 @@ const attrKeys = computed(() => {
 
   if (!p || p.skus.length === 0) return []
 
-  return Object.keys(p.skus[0].attrs)
+  const keys: string[] = []
+
+  for (const sku of p.skus) {
+
+    for (const key of Object.keys(sku.attrs || {})) {
+
+      if (key && !keys.includes(key)) keys.push(key)
+
+    }
+
+  }
+
+  return keys
 
 })
+
+
+
+const selectedEntries = (selection: Record<string, string>) =>
+
+  Object.entries(selection).filter(([, value]) => typeof value === 'string' && value.trim().length > 0)
+
+
+
+const skuEntries = (sku: Sku) =>
+
+  Object.entries(sku.attrs || {}).filter(([, value]) => typeof value === 'string' && value.trim().length > 0)
+
+
+
+const skuMatchesSelection = (sku: Sku, selection: Record<string, string>) =>
+
+  selectedEntries(selection).every(([key, value]) => sku.attrs[key] === value)
+
+
+
+const skuIsFullySelected = (sku: Sku, selection: Record<string, string>) => {
+
+  const attrs = skuEntries(sku)
+
+  if (attrs.length === 0) return true
+
+  return attrs.every(([key, value]) => selection[key] === value)
+
+}
 
 
 
@@ -360,7 +402,7 @@ const selectedSku = computed(() => {
 
   return (
 
-    p.skus.find((sku) => keys.every((k) => selected.value[k] && sku.attrs[k] === selected.value[k])) ?? null
+    p.skus.find((sku) => skuMatchesSelection(sku, selected.value) && skuIsFullySelected(sku, selected.value)) ?? null
 
   )
 
@@ -446,23 +488,23 @@ const stockTextFor = (key: string, value: string) => {
 
   if (!p) return ''
 
-  const keys = attrKeys.value
-
   const draft: Record<string, string> = { ...selected.value, [key]: value }
+
+  const matches = p.skus.filter((s) => skuMatchesSelection(s, draft))
 
   const sku =
 
-    p.skus.find((s) => keys.every((k) => (draft[k] ? s.attrs[k] === draft[k] : true))) ??
-
-    p.skus.find((s) => s.attrs[key] === value) ??
+    matches[0] ??
 
     null
 
   if (!sku) return '—'
 
-  if (sku.stock <= 0) return '无货'
+  const stock = matches.reduce((sum, item) => sum + Math.max(0, item.stock), 0)
 
-  return `库存 ${sku.stock}`
+  if (stock <= 0) return '无货'
+
+  return `库存 ${stock}`
 
 }
 
@@ -506,9 +548,17 @@ const optionsFor = (key: string) => {
 
   if (!p) return []
 
-  return Array.from(new Set(p.skus.map((s) => s.attrs[key])))
+  return Array.from(new Set(p.skus.map((s) => s.attrs[key]).filter((v): v is string => typeof v === 'string' && v.trim().length > 0)))
 
 }
+
+
+
+const visibleAttrKeys = computed(() =>
+
+  attrKeys.value.filter((key) => selected.value[key] || optionsFor(key).some((value) => !isOptionDisabled(key, value)))
+
+)
 
 
 
@@ -518,13 +568,11 @@ const isOptionDisabled = (key: string, value: string) => {
 
   if (!p) return true
 
-  const keys = attrKeys.value
-
   const draft: Record<string, string> = { ...selected.value, [key]: value }
 
   return (
 
-    p.skus.find((sku) => keys.every((k) => (draft[k] ? sku.attrs[k] === draft[k] : true)) && sku.stock > 0) == null
+    p.skus.find((sku) => skuMatchesSelection(sku, draft) && sku.stock > 0) == null
 
   )
 
@@ -904,7 +952,7 @@ onMounted(() => {
 
                 <div class="blockTitle">选择规格</div>
 
-                <div v-for="k in attrKeys" :key="k" class="skuGroup">
+                <div v-for="k in visibleAttrKeys" :key="k" class="skuGroup">
 
                   <div class="skuGrid">
 

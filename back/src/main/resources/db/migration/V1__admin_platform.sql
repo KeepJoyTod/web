@@ -98,5 +98,5 @@ UPDATE users SET role = 'USER' WHERE role IS NULL OR role = '';
 UPDATE users SET status = 1 WHERE status IS NULL;
 
 INSERT INTO users(account, password, nickname, role, status, create_time, update_time)
-VALUES ('admin@example.com', '$2b$10$.3nrUPeS6ozqZbQcLCSlreusNsph6VidxNZSrQwciuzSUbn5G3sg.', '平台管理员', 'ADMIN', 1, NOW(), NOW())
+VALUES ('admin@example.com', '0192023a7bbd73250516f069df18b500', '平台管理员', 'ADMIN', 1, NOW(), NOW())
 ON DUPLICATE KEY UPDATE role = 'ADMIN', status = 1, update_time = NOW();

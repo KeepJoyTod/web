@@ -100,6 +100,10 @@
         SELECT * FROM product_skus WHERE id = #{skuId}
     </select>
 
+    <select id="getSkuByIdAndProductId" resultType="com.web.pojo.ProductSku">
+        SELECT * FROM product_skus WHERE id = #{skuId} AND product_id = #{productId}
+    </select>
+
     <update id="updateSku">
         UPDATE product_skus
         <set>
@@ -107,6 +111,32 @@
             <if test="stock != null">stock = #{stock},</if>
         </set>
         WHERE id = #{id}
+    </update>
+
+    <update id="decreaseSkuStock">
+        UPDATE product_skus
+        SET stock = stock - #{quantity}
+        WHERE id = #{skuId}
+          AND product_id = #{productId}
+          AND stock &gt;= #{quantity}
+    </update>
+
+    <update id="decreaseProductStock">
+        UPDATE products
+        SET stock = stock - #{quantity}, update_time = NOW()
+        WHERE id = #{productId}
+          AND stock &gt;= #{quantity}
+    </update>
+
+    <update id="syncProductStockFromSkus">
+        UPDATE products p
+        SET p.stock = (
+            SELECT COALESCE(SUM(s.stock), 0)
+            FROM product_skus s
+            WHERE s.product_id = #{productId}
+        ),
+        p.update_time = NOW()
+        WHERE p.id = #{productId}
     </update>
 
 </mapper>

@@ -15,6 +15,15 @@ back/*.log
 
 # Node/Frontend (if applicable)
 frontend/node_modules/
+frontend-admin/node_modules/
+frontend-admin/node_modules/.vite/
+frontend-admin/dist/
+frontend-admin/test-results/
+frontend-admin/playwright-report/
+frontend-admin/allure-results/
+frontend-admin/allure-report/
+frontend-admin/.env.*
+frontend-admin/*.local
 frontend/dist/
 frontend/.env.local
 frontend/.env.development.local
