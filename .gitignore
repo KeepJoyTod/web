@@ -13,6 +13,11 @@ back/*.log
 .project
 .factorypath
 
+# AI Tools
+.claude/
+.trae/
+skills/
+
 # Node/Frontend (if applicable)
 frontend/node_modules/
 frontend-admin/node_modules/
@@ -41,3 +46,16 @@ mysql-data/
 api_testcases/pytest/__pycache__/
 api_testcases/pytest/pytest-report.html
 api_testcases/pytest/report.xml
+
+# Docs - Test records and conversations
+docs/performance-test-records/
+docs/recovered-codex-conversations/
+
+# Test results and performance data
+k6/results/
+
+# Temporary files
+新建 文本文档.txt
+
+# Docker volumes
+redis-data/

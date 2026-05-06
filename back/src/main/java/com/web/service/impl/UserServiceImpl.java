@@ -27,7 +27,6 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException("UNAUTHORIZED", "用户不存在或密码错误");
         }
         
-        // 使用 Hutool 简单 MD5 校验
         if (user.getStatus() != null && user.getStatus() == 0) {
             throw new BusinessException("FORBIDDEN", "账号已禁用");
         }
@@ -69,7 +68,7 @@ public class UserServiceImpl implements UserService {
         
         User user = new User();
         user.setAccount(normalizedAccount);
-        user.setPassword(DigestUtil.md5Hex(password));
+        user.setPassword(BCrypt.hashpw(password));
         user.setNickname(normalizedNickname);
         user.setRole("USER");
         user.setStatus(1);

@@ -10,13 +10,6 @@
 - 默认管理员：`admin@example.com`
 - 默认密码：`admin123`
 
-如果是已有数据库，先执行管理端迁移脚本：
-
-```powershell
-cd d:\Java\class\projectKu\web
-Get-Content back\sql\schema_admin.sql -Raw | mysql -uroot -p123456 web
-```
-
 如果是全新数据库，直接执行 `back/sql/init_db.sql` 即可，脚本已经包含默认管理员和后台所需字段。
 
 启动后台管理前端：
@@ -49,12 +42,6 @@ npm run dev
 mysql -uroot -p123456 -e "CREATE DATABASE IF NOT EXISTS web DEFAULT CHARSET utf8mb4;"
 
 $sqls = @(
-  "back/sql/schema_v1.sql",
-  "back/sql/schema_v2_address.sql",
-  "back/sql/schema_v3_payment.sql",
-  "back/sql/schema_v4_marketing_aftersales.sql",
-  "back/sql/schema_v5_products_tags.sql",
-  "back/sql/seed_demo.sql",
   "back/sql/seed_products_categories_1_8.sql"
 )
 
@@ -141,6 +128,7 @@ mvn spring-boot:run
 ```bash
 npm install
 npm run dev
+```
 
 ### Actuator 监控端点
 
@@ -149,7 +137,6 @@ npm run dev
 - 健康检查：`http://localhost:8080/api/actuator/health`
 - Prometheus 指标：`http://localhost:8080/api/actuator/prometheus`
 - 所有端点：`http://localhost:8080/api/actuator`
-```
 
 前端默认地址：
 
@@ -289,10 +276,6 @@ npx.cmd playwright show-report
 
 ## Playwright 登录测试
 
-登录测试用例文档已保存到：
-
-- `docs/login-test-cases.md`
-
 Playwright 自动化脚本已保存到：
 
 - `frontend/tests/login.spec.ts`
@@ -341,10 +324,6 @@ npx.cmd playwright show-report
 
 ## Playwright 注册测试
 
-注册测试用例文档已保存到：
-
-- `docs/register-test-cases.md`
-
 Playwright 自动化脚本已保存到：
 
 - `frontend/tests/register.spec.ts`
@@ -376,10 +355,6 @@ npm.cmd run test:register
 
 ## Playwright 核心页面跳转测试
 
-核心页面跳转测试用例文档已保存到：
-
-- `docs/navigation-test-cases.md`
-
 Playwright 自动化脚本已保存到：
 
 - `frontend/tests/navigation.spec.ts`
@@ -409,10 +384,6 @@ npm.cmd run test:navigation
 ```
 
 ## Playwright 商品详情测试
-
-商品详情测试用例文档已保存到：
-
-- `docs/product-detail-test-cases.md`
 
 Playwright 自动化脚本已保存到：
 
@@ -444,10 +415,6 @@ npm.cmd run test:product-detail
 
 ## Playwright 购物车测试
 
-购物车测试用例文档已保存到：
-
-- `docs/cart-test-cases.md`
-
 Playwright 自动化脚本已保存到：
 
 - `frontend/tests/cart.spec.ts`
@@ -468,10 +435,6 @@ npm.cmd run test:cart
 ```
 
 ## Playwright 下单 / 结算测试
-
-下单 / 结算测试用例文档已保存到：
-
-- `docs/checkout-test-cases.md`
 
 Playwright 自动化脚本已保存到：
 

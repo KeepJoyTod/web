@@ -1,13 +1,13 @@
 -- --------------------------------------------------
--- ProjectKu 数据库完整初始化脚本（修复版）
--- 包含所有表结构、基础数据、商品、订单等
+-- ProjectKu 数据库完整初始化脚本（整合版）
+-- 新建数据库只需要执行本文件；后台结构、通知表、索引优化和基础数据已全部整合在这里。
 -- --------------------------------------------------
 
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
 -- ----------------------------
--- 1. 创建类目表（新增）
+-- 1. 创建基础表结构
 -- ----------------------------
 CREATE TABLE `categories` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -19,7 +19,7 @@ CREATE TABLE `categories` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='商品类目表';
 
 -- ----------------------------
--- 2. 创建其他表结构
+-- 2. 创建业务表结构
 -- ----------------------------
 
 -- 用户表
@@ -313,7 +313,7 @@ CREATE TABLE `admin_operation_logs` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='后台操作日志';
 
 -- ----------------------------
--- 3. 初始数据填充
+-- 3. 初始化基础数据
 -- ----------------------------
 
 -- 3.1 类目数据
@@ -329,9 +329,9 @@ INSERT INTO `categories` (`id`, `name`) VALUES
 
 -- 3.2 用户数据
 INSERT INTO `users`(`account`, `password`, `nickname`, `role`, `status`) VALUES 
-('admin@example.com','0192023a7bbd73250516f069df18b500','平台管理员','ADMIN',1),
-('user@example.com','e10adc3949ba59abbe56e057f20f883e','测试用户','USER',1),
-('alice@example.com','e10adc3949ba59abbe56e057f20f883e','Alice','USER',1);
+('admin@example.com','$2b$10$cP.yYYlKIt0YBWaCK9flbOQn75ym7NZ7BpFnauWEZCfgQ1GpdXT9C','平台管理员','ADMIN',1),
+('user@example.com','$2b$10$wlTX8aXmbBQh02nlAv/DkuYHpbduKorqxElhzp7h4U.DokW5qcNB2','测试用户','USER',1),
+('alice@example.com','$2b$10$wlTX8aXmbBQh02nlAv/DkuYHpbduKorqxElhzp7h4U.DokW5qcNB2','Alice','USER',1);
 
 -- 3.3 后台权限数据
 INSERT INTO `admin_permissions`(`code`, `name`) VALUES
