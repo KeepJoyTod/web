@@ -1,61 +1,98 @@
-# Maven
-back/target/
-back/*.log
-
-# IDEs
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.vscode/
+.vscode*
 .idea/
+.idea*
+.codex/
+.codex*
 *.iml
 *.iws
 *.ipr
-.vscode/
 .settings/
 .classpath
 .project
 .factorypath
 
-# AI Tools
+# Claude / local tools
 .claude/
+.claude*
 .trae/
-skills/
+.trae*
+skills/**/__pycache__/
+skills/**/.DS_Store
+skills/**/._.DS_Store
+skills/**/.~*
 
-# Node/Frontend (if applicable)
-frontend/node_modules/
-frontend-admin/node_modules/
-frontend-admin/node_modules/.vite/
-frontend-admin/dist/
-frontend-admin/test-results/
-frontend-admin/playwright-report/
-frontend-admin/allure-results/
-frontend-admin/allure-report/
-frontend-admin/.env.*
-frontend-admin/*.local
-frontend/dist/
-frontend/.env.local
-frontend/.env.development.local
-frontend/.env.test.local
-frontend/.env.production.local
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Other
-.pids/
+# Logs / temp
+*.log
 logs/
-mysql-data/
+.pids/
+tmp/
+temp/
+*.tmp
+
+# Java / Maven
+back/target/
+**/target/
+*.class
+hs_err_pid*
+replay_pid*
+
+# Node / frontend
+node_modules/
+frontend-admin/node_modules/
+**/node_modules/
+.vite/
+**/.vite/
+dist/
+dist-ssr/
+*.local
+**/dist/
+**/dist-ssr/
+**/coverage/
+**/test-results/
+**/playwright-report/
+**/allure-results/
+**/allure-report/
+**/.cache/
+*.tsbuildinfo
+**/.env
+**/.env.local
+**/.env.*.local
+**/*.local
+
+# Python test artifacts
 api_testcases/pytest/__pycache__/
+api_testcases/pytest/.pytest_cache/
 api_testcases/pytest/pytest-report.html
 api_testcases/pytest/report.xml
+api_testcases/pytest/.coverage
+api_testcases/pytest/htmlcov/
 
-# Docs - Test records and conversations
+# Generated docs / reports
 docs/performance-test-records/
 docs/recovered-codex-conversations/
-
-# Test results and performance data
 k6/results/
 
-# Temporary files
-新建 文本文档.txt
-
-# Docker volumes
+# Local data / volumes
+mysql-data/
 redis-data/
+
+# Misc local files
+新建 文本文档.txt
+# 忽略 Vite 依赖缓存目录
+**/.vite/deps/
+# 忽略所有 Vite 依赖缓存文件
+**/node_modules/.vite/deps/**
+# 启动脚本
+start_all.bat
+start_all.sh
+
+# 敏感配置文件
+.env
+.env.local
