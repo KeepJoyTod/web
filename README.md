@@ -9,6 +9,7 @@
 - 管理端地址：`http://localhost:5174`
 - 默认管理员：`admin@example.com`
 - 默认密码：`admin123`
+  
 
 如果是全新数据库，直接执行 `back/sql/init_db.sql` 即可，脚本已经包含默认管理员和后台所需字段。
 
@@ -42,7 +43,7 @@ npm run dev
 mysql -uroot -p123456 -e "CREATE DATABASE IF NOT EXISTS web DEFAULT CHARSET utf8mb4;"
 
 $sqls = @(
-  "back/sql/seed_products_categories_1_8.sql"
+  "back/sql/init_db.sql"
 )
 
 foreach ($f in $sqls) {
@@ -83,16 +84,11 @@ npm run dev
 
 ## 数据库初始化
 
-1. 创建数据库 `web`
+1. 创建数据库 
 
    
-
-
-
-说明：
-
-- `schema_v5_products_tags.sql` 用于为 `products` 表增加 `tags` 字段；如果未执行该脚本，执行 `seed_products_categories_1_8.sql` 会出现 `1054 Unknown column 'tags'` 错误。
-- `seed_products_categories_1_8.sql` 为类目 1–8 每类填充 20 条商品数据，并在 `tags` 中写入可用于前端类目筛选的标签（例如手机：旗舰/性价比/折叠屏/配件）。
+   
+   
 
 ## 启动后端
 
@@ -230,7 +226,7 @@ docker-compose down
 确保 MySQL、Redis 已启动。如果使用 Docker：
 
 ```powershell
-cd d:\Java\class\projectKu\web
+cd web
 docker compose up -d
 ```
 
@@ -239,7 +235,7 @@ docker compose up -d
 新开一个 PowerShell：
 
 ```powershell
-cd d:\Java\class\projectKu\web\back
+cd web\back
 mvn spring-boot:run
 ```
 
@@ -254,7 +250,7 @@ http://127.0.0.1:8080/api/
 再新开一个 PowerShell：
 
 ```powershell
-cd d:\Java\class\projectKu\web\frontend
+cd web\frontend
 npm.cmd run test:e2e
 ```
 
@@ -296,21 +292,21 @@ Playwright 自动化脚本已保存到：
 运行前需确保 MySQL、Redis 和后端服务已启动。后端启动方式：
 
 ```powershell
-cd d:\Java\class\projectKu\web\back
+cd web\back
 mvn spring-boot:run
 ```
 
 运行登录测试：
 
 ```powershell
-cd d:\Java\class\projectKu\web\frontend
+cd web\frontend
 npm.cmd run test:login
 ```
 
 如需使用其他账号密码：
 
 ```powershell
-cd d:\Java\class\projectKu\web\frontend
+cd web\frontend
 $env:PLAYWRIGHT_LOGIN_ACCOUNT="user@example.com"
 $env:PLAYWRIGHT_LOGIN_PASSWORD="123456"
 npm.cmd run test:login
@@ -341,14 +337,14 @@ Playwright 自动化脚本已保存到：
 运行注册测试：
 
 ```powershell
-cd d:\Java\class\projectKu\web\frontend
+cd web\frontend
 npm.cmd run test:register
 ```
 
 如需覆盖默认注册密码：
 
 ```powershell
-cd d:\Java\class\projectKu\web\frontend
+cd web\frontend
 $env:PLAYWRIGHT_REGISTER_PASSWORD="123456"
 npm.cmd run test:register
 ```
@@ -372,14 +368,14 @@ Playwright 自动化脚本已保存到：
 运行前需确保 MySQL、Redis 和后端服务已启动。后端启动方式：
 
 ```powershell
-cd d:\Java\class\projectKu\web\back
+cd web\back
 mvn spring-boot:run
 ```
 
 运行核心页面跳转测试：
 
 ```powershell
-cd d:\Java\class\projectKu\web\frontend
+cd web\frontend
 npm.cmd run test:navigation
 ```
 
@@ -402,14 +398,14 @@ Playwright 自动化脚本已保存到：
 运行前需确保 MySQL、Redis 和后端服务已启动。后端启动方式：
 
 ```powershell
-cd d:\Java\class\projectKu\web\back
+cd back
 mvn spring-boot:run
 ```
 
 运行商品详情测试：
 
 ```powershell
-cd d:\Java\class\projectKu\web\frontend
+cd web\frontend
 npm.cmd run test:product-detail
 ```
 
@@ -430,7 +426,7 @@ Playwright 自动化脚本已保存到：
 运行购物车测试：
 
 ```powershell
-cd d:\Java\class\projectKu\web\frontend
+cd web\frontend
 npm.cmd run test:cart
 ```
 
@@ -454,7 +450,7 @@ Playwright 自动化脚本已保存到：
 运行下单 / 结算测试：
 
 ```powershell
-cd d:\Java\class\projectKu\web\frontend
+cd web\frontend
 npm.cmd run test:checkout
 ```
 
@@ -471,7 +467,7 @@ npm.cmd run test:checkout
 运行测试后会自动生成 `allure-results`。例如运行登录测试：
 
 ```powershell
-cd d:\Java\class\projectKu\web\frontend
+cd web\frontend
 npm.cmd run test:login
 ```
 
@@ -500,19 +496,9 @@ npm.cmd run allure:serve
 
 ## 常见问题
 
-### 1) 执行种子数据时报错：`1054 Unknown column 'tags' in 'field list'`
 
-原因：`products` 表尚未增加 `tags` 字段。
 
-解决：先执行：
-
-```sql
-SOURCE d:/Java/class/projectKu/web/back/sql/schema_v5_products_tags.sql;
-```
-
-再执行 `seed_products_categories_1_8.sql`。
-
-### 2) Maven 构建报错：`FileNotFoundException ... maven-surefire-common-3.1.2.jar.lastUpdated`
+### (1) Maven 构建报错：`FileNotFoundException ... maven-surefire-common-3.1.2.jar.lastUpdated`
 
 通常是本机 Maven 本地仓库目录配置异常导致（例如 `localRepository` 指向了不可写/不完整路径）。
 

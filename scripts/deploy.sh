@@ -1,16 +1,27 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-MODE="dev"
+MODE="${MODE:-dev}"
 NO_INSTALL=0
 SKIP_DB=0
 INIT_DB=0
 SKIP_BUILD=0
 DRYRUN=0
-DB_NAME="web"
-DB_USER="root"
-DB_PASSWORD="123456"
-MYSQL_CONTAINER="projectku-mysql"
+DB_NAME="${DB_NAME:-web}"
+DB_USER="${DB_USER:-root}"
+DB_PASSWORD="${DB_PASSWORD:-}"
+MYSQL_CONTAINER="${MYSQL_CONTAINER:-projectku-mysql}"
+FRONTEND_DEPS_DONE=0
+ADMIN_DEPS_DONE=0
+
+if [[ -f ".env" ]]; then
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
+    key="${line%%=*}"
+    value="${line#*=}"
+    [[ -z "${!key:-}" ]] && export "$key"="$value"
+  done < ".env"
+fi
 
 for arg in "$@"; do
   case "$arg" in
@@ -30,6 +41,7 @@ done
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FRONTEND_DIR="$ROOT/frontend"
+ADMIN_DIR="$ROOT/frontend-admin"
 BACKEND_DIR="$ROOT/back"
 if [[ ! -d "$BACKEND_DIR" && -d "$ROOT/backend" ]]; then
   BACKEND_DIR="$ROOT/backend"
@@ -138,7 +150,7 @@ ensure_docker() {
 start_compose() {
   [[ "$SKIP_DB" == "1" ]] && return 0
   ensure_docker
-  say "Starting MySQL (docker compose) ..."
+  say "Starting infrastructure services (docker compose) ..."
   if [[ "$DRYRUN" == "1" ]]; then
     echo "[dry-run] (cd \"$ROOT\" && docker compose up -d) or docker-compose up -d"
     return 0
@@ -172,15 +184,36 @@ import_db() {
   fi
   [[ -d "$sql_dir" ]] || { echo "SQL directory not found: $sql_dir" >&2; exit 1; }
 
-  local sqls=(
-    "schema_v1.sql"
-    "schema_v2_address.sql"
-    "schema_v3_payment.sql"
-    "schema_v4_marketing_aftersales.sql"
-    "schema_v5_products_tags.sql"
-    "seed_demo.sql"
-    "seed_products_categories_1_8.sql"
-  )
+  local sqls=()
+  if [[ -f "$sql_dir/init_db.sql" ]]; then
+    sqls=("init_db.sql")
+  else
+    local ordered=(
+      "schema_v1.sql"
+      "schema_v2_address.sql"
+      "schema_v3_payment.sql"
+      "schema_v4_marketing_aftersales.sql"
+      "schema_v5_products_tags.sql"
+      "seed_demo.sql"
+      "seed_products_categories_1_8.sql"
+    )
+    local rel
+    for rel in "${ordered[@]}"; do
+      [[ -f "$sql_dir/$rel" ]] && sqls+=("$rel")
+    done
+
+    if [[ ${#sqls[@]} -eq 0 ]]; then
+      shopt -s nullglob
+      local discovered=("$sql_dir"/*.sql)
+      shopt -u nullglob
+      local f
+      for f in "${discovered[@]}"; do
+        [[ -f "$f" ]] && sqls+=("$(basename "$f")")
+      done
+    fi
+  fi
+
+  [[ ${#sqls[@]} -gt 0 ]] || { echo "No SQL files found in: $sql_dir" >&2; exit 1; }
 
   if [[ "$DRYRUN" == "1" ]]; then
     echo "[dry-run] ensure database exists: $DB_NAME"
@@ -188,6 +221,7 @@ import_db() {
     docker exec "$MYSQL_CONTAINER" mysql "-u$DB_USER" "-p$DB_PASSWORD" -e "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\` DEFAULT CHARSET utf8mb4;" >/dev/null
   fi
 
+  local rel
   for rel in "${sqls[@]}"; do
     local f="$sql_dir/$rel"
     [[ -f "$f" ]] || { echo "SQL file not found: $f" >&2; exit 1; }
@@ -199,11 +233,31 @@ import_db() {
   done
 }
 
+npm_install_dir() {
+  local dir="$1"
+  local label="$2"
+  [[ -f "$dir/package.json" ]] || return 0
+  ensure_node18
+  say "Installing $label dependencies ..."
+  if [[ -f "$dir/package-lock.json" ]]; then
+    (cd "$dir" && run "npm ci")
+  else
+    (cd "$dir" && run "npm install")
+  fi
+}
+
 frontend_deps() {
   [[ -f "$FRONTEND_DIR/package.json" ]] || return 0
-  ensure_node18
-  say "Installing frontend dependencies ..."
-  (cd "$FRONTEND_DIR" && run "npm ci")
+  if [[ "$FRONTEND_DEPS_DONE" == "1" ]]; then return 0; fi
+  npm_install_dir "$FRONTEND_DIR" "frontend"
+  FRONTEND_DEPS_DONE=1
+}
+
+admin_deps() {
+  [[ -f "$ADMIN_DIR/package.json" ]] || return 0
+  if [[ "$ADMIN_DEPS_DONE" == "1" ]]; then return 0; fi
+  npm_install_dir "$ADMIN_DIR" "frontend-admin"
+  ADMIN_DEPS_DONE=1
 }
 
 backend_deps() {
@@ -216,6 +270,7 @@ build_if_needed() {
   [[ "$SKIP_BUILD" == "1" ]] && return 0
   backend_deps
   frontend_deps
+  admin_deps
 
   if [[ -f "$BACKEND_DIR/pom.xml" ]]; then
     say "Building backend (Maven) ..."
@@ -225,6 +280,11 @@ build_if_needed() {
   if [[ "$MODE" == "prod" && -f "$FRONTEND_DIR/package.json" ]]; then
     say "Building frontend (Vite) ..."
     (cd "$FRONTEND_DIR" && run "npm run build")
+  fi
+
+  if [[ "$MODE" == "prod" && -f "$ADMIN_DIR/package.json" ]]; then
+    say "Building frontend-admin (Vite) ..."
+    (cd "$ADMIN_DIR" && run "npm run build")
   fi
 }
 
@@ -273,7 +333,22 @@ start_app() {
     fi
   fi
 
-  printf '\nFrontend: http://localhost:5173\nBackend:  http://localhost:8080/api\n'
+  if [[ -f "$ADMIN_DIR/package.json" ]]; then
+    admin_deps
+    if [[ "$MODE" == "dev" ]]; then
+      run_bg admin "$ADMIN_DIR" npm run dev
+    else
+      run_bg admin "$ADMIN_DIR" npm run preview -- --host 0.0.0.0 --port 4174
+    fi
+  fi
+
+  printf '\nFrontend: http://localhost:5173\n'
+  if [[ "$MODE" == "dev" ]]; then
+    printf 'Admin:    http://localhost:5174\n'
+  else
+    printf 'Admin:    http://localhost:4174\n'
+  fi
+  printf 'Backend:  http://localhost:8080/api\n'
 }
 
 say "Project root: $ROOT"
