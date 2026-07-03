@@ -6,6 +6,10 @@ on:
     - cron: "40 12 * * *"
   # 允许手动触发
   workflow_dispatch:
+  # main 分支代码发生变更时自动触发
+  push:
+    branches:
+      - main
 
 defaults:
   run:
