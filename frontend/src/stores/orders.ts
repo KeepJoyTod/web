@@ -83,11 +83,13 @@ export const useOrdersStore = defineStore('orders', () => {
           title: String(it.productName ?? it.title ?? '商品'),
           price: Number(it.price ?? it.unitPrice ?? 0),
           qty: Number(it.quantity ?? it.qty ?? 1),
-          cover: '',
+          cover: it.cover || it.productImage || (it.productId ? `/product_${it.productId}.jpg` : ''),
         }))
       : []
     const itemsAmount = Number(x.totalAmount ?? 0)
     const paidAmount = Number(x.payAmount ?? 0)
+    const discountAmount = Number(x.discountAmount ?? 0)
+    const shippingAmount = Number(x.shippingAmount ?? 0)
     return {
       id,
       status,
@@ -95,16 +97,16 @@ export const useOrdersStore = defineStore('orders', () => {
       paidAt,
       items,
       address: {
-        receiver: '',
-        phone: '',
-        region: '',
-        detail: '',
+        receiver: String(x.receiverName ?? ''),
+        phone: String(x.receiverPhone ?? ''),
+        region: String(x.receiverRegion ?? ''),
+        detail: String(x.receiverDetail ?? ''),
       },
       amounts: {
         items: itemsAmount,
-        discount: 0,
-        shipping: 0,
-        payable: Number.isFinite(paidAmount) && paidAmount > 0 ? paidAmount : itemsAmount,
+        discount: discountAmount,
+        shipping: shippingAmount,
+        payable: Number.isFinite(paidAmount) && paidAmount > 0 ? paidAmount : Math.max(0, itemsAmount - discountAmount + shippingAmount),
         paid: Number.isFinite(paidAmount) ? paidAmount : 0,
       },
     }

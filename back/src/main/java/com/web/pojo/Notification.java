@@ -16,7 +16,7 @@ public class Notification {
     private String content;
     private String relatedId;
     private Boolean isRead;
-    private LocalDateTime readTime;
-    private LocalDateTime createTime;
-    private LocalDateTime updateTime;
+    private java.util.Date readTime;
+    private java.util.Date createTime;
+    private java.util.Date updateTime;
 }

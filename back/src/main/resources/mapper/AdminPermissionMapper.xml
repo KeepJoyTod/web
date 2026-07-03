@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.web.mapper.AdminPermissionMapper">
+
+    <select id="listPermissionCodesByRole" resultType="string">
+        SELECT permission_code
+        FROM admin_role_permissions
+        WHERE role = #{role}
+    </select>
+
+    <insert id="insertOperationLog">
+        INSERT INTO admin_operation_logs(
+            admin_id, admin_account, role, permission_code, method, path, action,
+            status, duration_ms, error_message, ip, create_time
+        )
+        VALUES (
+            #{adminId}, #{adminAccount}, #{role}, #{permissionCode}, #{method}, #{path}, #{action},
+            #{status}, #{durationMs}, #{errorMessage}, #{ip}, NOW()
+        )
+    </insert>
+
+    <select id="listOperationLogs" resultType="com.web.pojo.AdminOperationLog">
+        SELECT *
+        FROM admin_operation_logs
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (
+                    admin_account LIKE CONCAT('%', #{keyword}, '%')
+                    OR action LIKE CONCAT('%', #{keyword}, '%')
+                    OR path LIKE CONCAT('%', #{keyword}, '%')
+                )
+            </if>
+            <if test="permissionCode != null and permissionCode != ''">
+                AND permission_code = #{permissionCode}
+            </if>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+        </where>
+        ORDER BY create_time DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <select id="countOperationLogs" resultType="long">
+        SELECT COUNT(*)
+        FROM admin_operation_logs
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (
+                    admin_account LIKE CONCAT('%', #{keyword}, '%')
+                    OR action LIKE CONCAT('%', #{keyword}, '%')
+                    OR path LIKE CONCAT('%', #{keyword}, '%')
+                )
+            </if>
+            <if test="permissionCode != null and permissionCode != ''">
+                AND permission_code = #{permissionCode}
+            </if>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+        </where>
+    </select>
+</mapper>

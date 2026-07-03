@@ -4,6 +4,8 @@ import { api } from '../lib/api'
 
 export type Review = {
   id: string
+  userId: string
+  nickname: string
   orderId: string
   productId: string
   rating: number
@@ -22,6 +24,8 @@ export const useReviewsStore = defineStore('reviews', () => {
     const list = Array.isArray(res.data?.data) ? res.data.data : []
     itemsRef.value = list.map((x: any) => ({
       id: String(x.id),
+      userId: String(x.userId || ''),
+      nickname: String(x.nickname || '匿名用户'),
       orderId: String(x.orderId),
       productId: String(x.productId),
       rating: Number(x.rating ?? 0),
@@ -38,7 +42,7 @@ export const useReviewsStore = defineStore('reviews', () => {
     }))
   }
 
-  const create = async (input: Omit<Review, 'id' | 'createdAt'>) => {
+  const create = async (input: Omit<Review, 'id' | 'createdAt' | 'nickname' | 'userId'>) => {
     const res = await api.post('/v1/reviews', {
       orderId: input.orderId,
       productId: input.productId,
@@ -49,6 +53,8 @@ export const useReviewsStore = defineStore('reviews', () => {
     const x = res.data?.data || {}
     const r: Review = {
       id: String(x.id ?? ''),
+      userId: String(x.userId || ''),
+      nickname: String(x.nickname || '我'),
       orderId: String(x.orderId ?? input.orderId),
       productId: String(x.productId ?? input.productId),
       rating: Number(x.rating ?? input.rating),

@@ -1,0 +1,280 @@
+{
+    "metrics": {
+        "iteration_duration": {
+            "min": 1001.3798,
+            "med": 1004.9139,
+            "max": 1065.3633,
+            "p(90)": 1008.9369,
+            "p(95)": 1011.15846,
+            "avg": 1005.7757161506248
+        },
+        "http_req_receiving": {
+            "min": 0,
+            "med": 0,
+            "max": 8.9026,
+            "p(90)": 0.513,
+            "p(95)": 0.54738,
+            "avg": 0.09877513698086231
+        },
+        "http_req_waiting": {
+            "avg": 1.1820298578575459,
+            "min": 0,
+            "med": 1.0146,
+            "max": 84.0863,
+            "p(90)": 2.155660000000001,
+            "p(95)": 3.03666
+        },
+        "http_req_duration{expected_response:true}": {
+            "p(95)": 3.2774149999999924,
+            "avg": 1.4286872369010348,
+            "min": 0,
+            "med": 1.0575,
+            "max": 84.0863,
+            "p(90)": 2.509140000000002
+        },
+        "http_req_connecting": {
+            "med": 0,
+            "max": 9.1859,
+            "p(90)": 0.5149,
+            "p(95)": 0.5734,
+            "avg": 0.10767628841419816,
+            "min": 0
+        },
+        "vus_max": {
+            "value": 20,
+            "min": 20,
+            "max": 20
+        },
+        "http_req_failed": {
+            "passes": 3661,
+            "fails": 8932,
+            "thresholds": {
+                "rate<0.01": true
+            },
+            "value": 0.2907170650361312
+        },
+        "vus": {
+            "value": 5,
+            "min": 5,
+            "max": 20
+        },
+        "iterations": {
+            "count": 3585,
+            "rate": 19.79597547619781
+        },
+        "checks": {
+            "passes": 17864,
+            "fails": 7322,
+            "thresholds": {
+                "rate>0.99": true
+            },
+            "value": 0.7092829349638688
+        },
+        "http_reqs": {
+            "count": 12593,
+            "rate": 69.53716015948648
+        },
+        "http_req_blocked": {
+            "avg": 0.12005771460335075,
+            "min": 0,
+            "med": 0,
+            "max": 9.1859,
+            "p(90)": 0.51748,
+            "p(95)": 0.5945
+        },
+        "http_req_duration": {
+            "avg": 1.2933544905900165,
+            "min": 0,
+            "med": 1.0297,
+            "max": 84.0863,
+            "p(90)": 2.3148,
+            "p(95)": 3.1844799999999998,
+            "thresholds": {
+                "p(95)<800": false,
+                "p(99)<1500": false
+            }
+        },
+        "http_req_tls_handshaking": {
+            "p(95)": 0,
+            "avg": 0,
+            "min": 0,
+            "med": 0,
+            "max": 0,
+            "p(90)": 0
+        },
+        "data_sent": {
+            "count": 2206214,
+            "rate": 12182.470917501889
+        },
+        "data_received": {
+            "count": 20849163,
+            "rate": 115126.78366729448
+        },
+        "http_req_sending": {
+            "med": 0,
+            "max": 3.8668,
+            "p(90)": 0,
+            "p(95)": 0,
+            "avg": 0.012549495751608044,
+            "min": 0
+        }
+    },
+    "setup_data": {
+        "seed": {
+            "addressId": 1,
+            "productIds": [
+                170,
+                169,
+                168,
+                167,
+                166,
+                165,
+                164,
+                163,
+                162,
+                161,
+                160,
+                159,
+                158,
+                157,
+                156,
+                155,
+                154,
+                153,
+                152,
+                151
+            ]
+        },
+        "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpZCI6MSwiYWNjb3VudCI6InVzZXJAZXhhbXBsZS5jb20iLCJleHAiOjE3NzcyOTk3ODcxNTV9.DcVO65emYxfe1KU8tpL4yH3xFnSkJCYll8J-BDVBVJc",
+        "baseUrl": "http://127.0.0.1:8080/api"
+    },
+    "root_group": {
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {
+            "setup": {
+                "groups": {},
+                "checks": {
+                        "login status is 200": {
+                            "name": "login status is 200",
+                            "path": "::setup::login status is 200",
+                            "id": "bb27b460b057923f4a083e3603c038b9",
+                            "passes": 1,
+                            "fails": 0
+                        },
+                        "login business success": {
+                            "name": "login business success",
+                            "path": "::setup::login business success",
+                            "id": "699c6a584582cdbea3d6e8eb244e8592",
+                            "passes": 1,
+                            "fails": 0
+                        },
+                        "seed products status is 200": {
+                            "name": "seed products status is 200",
+                            "path": "::setup::seed products status is 200",
+                            "id": "1c362e23da2b97a9a73818eba6117bf2",
+                            "passes": 1,
+                            "fails": 0
+                        },
+                        "seed products business success": {
+                            "name": "seed products business success",
+                            "path": "::setup::seed products business success",
+                            "id": "1ee24690e753c8cada63393d4a455fcf",
+                            "passes": 1,
+                            "fails": 0
+                        },
+                        "seed addresses status is 200": {
+                            "fails": 0,
+                            "name": "seed addresses status is 200",
+                            "path": "::setup::seed addresses status is 200",
+                            "id": "863817c2cf6091a0334bfea6f6ca5c78",
+                            "passes": 1
+                        },
+                        "seed addresses business success": {
+                            "name": "seed addresses business success",
+                            "path": "::setup::seed addresses business success",
+                            "id": "71ebabd9d8bf13266c5eb0ac062a5148",
+                            "passes": 1,
+                            "fails": 0
+                        }
+                    },
+                "name": "setup",
+                "path": "::setup",
+                "id": "5c0f8025f7e0b6654089e5b00e950f1a"
+            }
+        },
+        "checks": {
+            "get categories status is 200": {
+                "name": "get categories status is 200",
+                "path": "::get categories status is 200",
+                "id": "a0a55fca6d36fb13b90fd35ca903f3bc",
+                "passes": 0,
+                "fails": 3585
+            },
+            "get categories business success": {
+                "name": "get categories business success",
+                "path": "::get categories business success",
+                "id": "cf1727fbf1a57498fb1ce4b062f231e2",
+                "passes": 0,
+                "fails": 3585
+            },
+            "get products status is 200": {
+                "passes": 3585,
+                "fails": 0,
+                "name": "get products status is 200",
+                "path": "::get products status is 200",
+                "id": "b4bf059c5bbf8dcf3e5db904ea442b6b"
+            },
+            "get products business success": {
+                "path": "::get products business success",
+                "id": "8a65737351da855e23f532438a94f65b",
+                "passes": 3585,
+                "fails": 0,
+                "name": "get products business success"
+            },
+            "get product detail status is 200": {
+                "fails": 76,
+                "name": "get product detail status is 200",
+                "path": "::get product detail status is 200",
+                "id": "b29122fca3098ebb7169563944abf6e6",
+                "passes": 3509
+            },
+            "get product detail business success": {
+                "fails": 76,
+                "name": "get product detail business success",
+                "path": "::get product detail business success",
+                "id": "2bf33df3c95ae9aaf010f402f2d24283",
+                "passes": 3509
+            },
+            "get current user status is 200": {
+                "name": "get current user status is 200",
+                "path": "::get current user status is 200",
+                "id": "8b74b80f8ccea52bd9c852617fd4ebd4",
+                "passes": 1272,
+                "fails": 0
+            },
+            "get current user business success": {
+                "fails": 0,
+                "name": "get current user business success",
+                "path": "::get current user business success",
+                "id": "337952d8bba4be9006ba593e06290a49",
+                "passes": 1272
+            },
+            "get orders status is 200": {
+                "name": "get orders status is 200",
+                "path": "::get orders status is 200",
+                "id": "4a6e3133aa8362419f118516d229a1e0",
+                "passes": 563,
+                "fails": 0
+            },
+            "get orders business success": {
+                "name": "get orders business success",
+                "path": "::get orders business success",
+                "id": "60d46f30be06155765fe310a4b50cab0",
+                "passes": 563,
+                "fails": 0
+            }
+        },
+        "name": "",
+        "path": ""
+    }
+}

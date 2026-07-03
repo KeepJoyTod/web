@@ -1,0 +1,18 @@
+global:
+  scrape_interval: 15s  # 每15秒采集一次指标
+  evaluation_interval: 15s  # 每15秒评估一次告警规则
+
+scrape_configs:
+  # 采集 Spring Boot 应用指标
+  - job_name: "spring-boot"
+    metrics_path: "/api/actuator/prometheus"
+    static_configs:
+      - targets: ["host.docker.internal:8080"]
+        labels:
+          application: "web"
+          environment: "development"
+
+  # 采集 Prometheus 自身指标
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]

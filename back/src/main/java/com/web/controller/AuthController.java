@@ -37,6 +37,7 @@ public class AuthController {
         String token = JWT.create()
                 .setPayload("id", user.getId())
                 .setPayload("account", user.getAccount())
+                .setPayload("role", user.getRole() == null ? "USER" : user.getRole())
                 .setPayload("exp", System.currentTimeMillis() + 7200 * 1000) // 2小时过期
                 .setSigner(JWTSignerUtil.hs256(JWT_KEY))
                 .sign();

@@ -94,6 +94,7 @@ const goPay = () => {
     itemsAmount: order.value.amounts.items,
     discount: order.value.amounts.discount,
     shipping: order.value.amounts.shipping,
+    payable: order.value.amounts.payable,
   })
   router.push({ name: 'payResult', query: { orderId: order.value.id, autoPay: '1' } })
 }
@@ -240,7 +241,7 @@ onMounted(async () => {
 <style scoped>
 .page {
   min-height: 100svh;
-  background: #f9fafb;
+  background: var(--bg);
 }
 
 .main {
@@ -263,7 +264,7 @@ onMounted(async () => {
   padding: 0;
   cursor: pointer;
   font: 500 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #4a5565;
+  color: var(--text);
 }
 
 .backIcon {
@@ -277,7 +278,7 @@ onMounted(async () => {
   gap: 8px;
   height: 20px;
   font: 400 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #4a5565;
+  color: var(--text);
 }
 
 .crumbLink {
@@ -285,21 +286,22 @@ onMounted(async () => {
   background: transparent;
   padding: 0;
   cursor: pointer;
-  color: #4a5565;
+  color: var(--text);
   font: inherit;
 }
 
 .crumbSep {
-  color: #4a5565;
+  color: var(--text);
 }
 
 .crumbCur {
-  color: #4a5565;
+  color: var(--text);
 }
 
 .panel {
   border-radius: 16px;
-  background: #ffffff;
+  background: var(--bg);
+  border: 1px solid var(--border);
   padding: 24px 24px 0;
   display: grid;
   gap: 16px;
@@ -318,7 +320,7 @@ onMounted(async () => {
 
 .panelTitle {
   font: 500 20px/28px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #0a0a0a;
+  color: var(--text-h);
 }
 
 .statusPanel {
@@ -337,12 +339,12 @@ onMounted(async () => {
 
 .statusH1 {
   font: 500 24px/32px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #0a0a0a;
+  color: var(--text-h);
 }
 
 .statusNo {
   font: 400 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #4a5565;
+  color: var(--text);
 }
 
 .shipBtn {
@@ -351,7 +353,7 @@ onMounted(async () => {
   border-radius: 10px;
   border: 0;
   cursor: pointer;
-  background: #9810fa;
+  background: var(--accent);
   color: #ffffff;
   font: 400 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
@@ -374,7 +376,7 @@ onMounted(async () => {
   right: 0;
   top: 20px;
   height: 2px;
-  background: #e5e7eb;
+  background: var(--border);
 }
 
 .step {
@@ -387,19 +389,19 @@ onMounted(async () => {
   width: 40px;
   height: 40px;
   border-radius: 9999px;
-  background: #e5e7eb;
+  background: var(--border);
   display: grid;
   place-items: center;
   z-index: 1;
 }
 
 .stepCircle.on {
-  background: #9810fa;
+  background: var(--accent);
 }
 
 .stepNum {
   font: 400 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #99a1af;
+  color: var(--text);
 }
 
 .stepNum.on {
@@ -408,7 +410,7 @@ onMounted(async () => {
 
 .stepText {
   font: 400 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #0a0a0a;
+  color: var(--text-h);
   text-align: center;
 }
 
@@ -428,12 +430,12 @@ onMounted(async () => {
 .kvK {
   width: 80px;
   font: 400 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #4a5565;
+  color: var(--text);
 }
 
 .kvV {
   font: 400 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #0a0a0a;
+  color: var(--text-h);
 }
 
 .prodList {
@@ -453,7 +455,7 @@ onMounted(async () => {
   height: 80px;
   border-radius: 10px;
   object-fit: cover;
-  background: #f3f4f6;
+  background: var(--code-bg);
 }
 
 .prodMid {
@@ -465,7 +467,7 @@ onMounted(async () => {
 
 .prodTitle {
   font: 500 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #0a0a0a;
+  color: var(--text-h);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -473,7 +475,7 @@ onMounted(async () => {
 
 .prodQty {
   font: 400 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #4a5565;
+  color: var(--text);
 }
 
 .prodRight {
@@ -483,7 +485,7 @@ onMounted(async () => {
 
 .prodPrice {
   font: 500 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #0a0a0a;
+  color: var(--text-h);
 }
 
 .feeList {
@@ -501,15 +503,15 @@ onMounted(async () => {
 }
 
 .feeK {
-  color: #4a5565;
+  color: var(--text);
 }
 
 .feeV {
-  color: #0a0a0a;
+  color: var(--text-h);
 }
 
 .feeTotal {
-  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  border-top: 1px solid var(--border);
   padding-top: 12px;
   display: flex;
   justify-content: space-between;
@@ -519,12 +521,12 @@ onMounted(async () => {
 
 .feeTotalK {
   font: 400 20px/28px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #0a0a0a;
+  color: var(--text-h);
 }
 
 .feeTotalV {
   font: 400 30px/36px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #e7000b;
+  color: var(--danger);
 }
 
 .bottomActions {
@@ -543,14 +545,14 @@ onMounted(async () => {
 
 .primaryBtn {
   border: 0;
-  background: #9810fa;
+  background: var(--accent);
   color: #ffffff;
 }
 
 .ghostBtn {
-  border: 1px solid #d1d5dc;
-  background: #ffffff;
-  color: #364153;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
 }
 
 .ghostBtn:disabled {

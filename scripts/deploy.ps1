@@ -1,15 +1,32 @@
+function Load-EnvFile {
+  param([string]$Path)
+  if (-not (Test-Path $Path)) { return }
+  Get-Content $Path | ForEach-Object {
+    if ($_ -match '^([^=]+)=(.+)$' -and $_ -notmatch '^#') {
+      $key = $matches[1].Trim()
+      $value = $matches[2].Trim()
+      if (-not (Test-Path "env:\$key")) {
+        [Environment]::SetEnvironmentVariable($key, $value, "Process")
+      }
+    }
+  }
+}
+
+Load-EnvFile ".env"
+
 param(
   [ValidateSet("dev", "prod")]
-  [string]$Mode = "dev",
+  [string]$Mode = (if ($env:MODE) { $env:MODE } else { "dev" }),
   [switch]$NoInstall,
   [switch]$SkipDb,
   [switch]$InitDb,
   [switch]$SkipBuild,
   [switch]$DryRun,
-  [string]$DbName = "web",
-  [string]$DbUser = "root",
-  [string]$DbPassword = "123456",
-  [string]$MysqlContainer = "projectku-mysql"
+  [switch]$OpenWindow,
+  [string]$DbName = (if ($env:DB_NAME) { $env:DB_NAME } else { "web" }),
+  [string]$DbUser = (if ($env:DB_USER) { $env:DB_USER } else { "root" }),
+  [string]$DbPassword = (if ($env:DB_PASSWORD) { $env:DB_PASSWORD } else { "" }),
+  [string]$MysqlContainer = (if ($env:MYSQL_CONTAINER) { $env:MYSQL_CONTAINER } else { "projectku-mysql" })
 )
 
 $ErrorActionPreference = "Stop"
@@ -17,9 +34,11 @@ Set-StrictMode -Version Latest
 
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $FrontendDir = Join-Path $Root "frontend"
+$AdminDir = Join-Path $Root "frontend-admin"
 $BackendDir = if (Test-Path (Join-Path $Root "back")) { Join-Path $Root "back" } else { Join-Path $Root "backend" }
 $LogsDir = Join-Path $Root "logs"
 $PidsDir = Join-Path $Root ".pids"
+$InstalledNodeProjects = @{}
 
 New-Item -ItemType Directory -Force -Path $LogsDir | Out-Null
 New-Item -ItemType Directory -Force -Path $PidsDir | Out-Null
@@ -33,14 +52,14 @@ function Command-Exists([string]$Name) {
   return [bool](Get-Command $Name -ErrorAction SilentlyContinue)
 }
 
-function Invoke-External([string]$FilePath, [string[]]$Args, [string]$WorkingDirectory = $Root) {
+function Invoke-External([string]$FilePath, [string[]]$CommandArgs, [string]$WorkingDirectory = $Root) {
   if ($DryRun) {
-    Write-Host ("[dry-run] " + $FilePath + " " + ($Args -join " "))
+    Write-Host ("[dry-run] " + $FilePath + " " + ($CommandArgs -join " "))
     return
   }
-  $p = Start-Process -FilePath $FilePath -ArgumentList $Args -WorkingDirectory $WorkingDirectory -NoNewWindow -Wait -PassThru
+  $p = Start-Process -FilePath $FilePath -ArgumentList $CommandArgs -WorkingDirectory $WorkingDirectory -NoNewWindow -Wait -PassThru
   if ($p.ExitCode -ne 0) {
-    throw ("Command failed: " + $FilePath + " " + ($Args -join " "))
+    throw ("Command failed: " + $FilePath + " " + ($CommandArgs -join " "))
   }
 }
 
@@ -69,6 +88,17 @@ function Ensure-Tool([string]$CommandName, [string]$WingetId) {
   if (-not (Command-Exists $CommandName)) {
     throw ("Install finished but " + $CommandName + " is still not found. Restart your terminal and re-run.")
   }
+}
+
+function Get-PowerShellExe {
+  if (Command-Exists "pwsh") { return "pwsh" }
+  if (Command-Exists "powershell.exe") { return "powershell.exe" }
+  if (Command-Exists "powershell") { return "powershell" }
+  throw "Neither pwsh nor powershell.exe found."
+}
+
+function Escape-PwshSingleQuoted([string]$Value) {
+  return ($Value -replace "'", "''")
 }
 
 function Ensure-Java17 {
@@ -114,7 +144,7 @@ function Start-Compose {
   if ($SkipDb) { return }
   Ensure-Docker
 
-  Write-Step "Starting MySQL (docker compose) ..."
+  Write-Step "Starting infrastructure services (docker compose) ..."
   if ($DryRun) {
     Write-Host ("[dry-run] (cd `"$Root`" && docker compose up -d) or docker-compose up -d")
     return
@@ -146,32 +176,72 @@ function Wait-For-MySQL {
   throw "MySQL is not ready. Check docker logs: docker logs $MysqlContainer"
 }
 
+function Get-SqlFiles([string]$SqlDir) {
+  $preferred = Join-Path $SqlDir "init_db.sql"
+  if (Test-Path $preferred) {
+    return @($preferred)
+  }
+
+  $orderedNames = @(
+    "schema_v1.sql",
+    "schema_v2_address.sql",
+    "schema_v3_payment.sql",
+    "schema_v4_marketing_aftersales.sql",
+    "schema_v5_products_tags.sql",
+    "seed_demo.sql",
+    "seed_products_categories_1_8.sql"
+  )
+
+  $orderedFiles = New-Object System.Collections.Generic.List[string]
+  foreach ($name in $orderedNames) {
+    $candidate = Join-Path $SqlDir $name
+    if (Test-Path $candidate) {
+      $orderedFiles.Add($candidate)
+    }
+  }
+  if ($orderedFiles.Count -gt 0) {
+    return $orderedFiles.ToArray()
+  }
+
+  $allSqls = Get-ChildItem -Path $SqlDir -Filter "*.sql" -File | Sort-Object Name | Select-Object -ExpandProperty FullName
+  if ($allSqls) {
+    return @($allSqls)
+  }
+
+  throw ("No SQL files found in: " + $SqlDir)
+}
+
 function Import-DbSchema {
   if ($SkipDb -or (-not $InitDb)) { return }
   Ensure-Docker
   Wait-For-MySQL
 
   Write-Step "Importing database schema and seed data ..."
-  $sqls = @(
-    "back/sql/schema_v1.sql",
-    "back/sql/schema_v2_address.sql",
-    "back/sql/schema_v3_payment.sql",
-    "back/sql/schema_v4_marketing_aftersales.sql",
-    "back/sql/schema_v5_products_tags.sql",
-    "back/sql/seed_demo.sql",
-    "back/sql/seed_products_categories_1_8.sql"
-  )
+  $sqlDir = Join-Path $Root "back/sql"
+  if (-not (Test-Path $sqlDir)) {
+    $fallback = Join-Path $BackendDir "sql"
+    if (Test-Path $fallback) { $sqlDir = $fallback }
+  }
+  if (-not (Test-Path $sqlDir)) {
+    throw ("SQL directory not found. Expected: " + (Join-Path $Root "back/sql") + " or " + (Join-Path $BackendDir "sql"))
+  }
 
-  foreach ($rel in $sqls) {
-    $f = Join-Path $Root $rel
-    if (-not (Test-Path $f)) { throw ("SQL file not found: " + $f) }
+  $sqlFiles = Get-SqlFiles -SqlDir $sqlDir
 
+  if ($DryRun) {
+    Write-Host ("[dry-run] ensure database exists: " + $DbName)
+  } else {
+    & docker exec $MysqlContainer mysql "-u$DbUser" "-p$DbPassword" -e ("CREATE DATABASE IF NOT EXISTS ``" + $DbName + "`` DEFAULT CHARSET utf8mb4;") | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw ("Failed to create database: " + $DbName) }
+  }
+
+  foreach ($file in $sqlFiles) {
     if ($DryRun) {
-      Write-Host ("[dry-run] import " + $rel)
+      Write-Host ("[dry-run] import " + (Split-Path $sqlDir -Leaf) + "/" + (Split-Path $file -Leaf))
       continue
     }
 
-    $sql = Get-Content $f -Raw
+    $sql = Get-Content $file -Raw
     $bytes = [System.Text.Encoding]::UTF8.GetBytes($sql)
     $ms = New-Object System.IO.MemoryStream(,$bytes)
     $psi = New-Object System.Diagnostics.ProcessStartInfo
@@ -190,25 +260,42 @@ function Import-DbSchema {
     $stderr = $p.StandardError.ReadToEnd()
     $p.WaitForExit()
     if ($p.ExitCode -ne 0) {
-      throw ("DB import failed: " + $rel + "`n" + $stderr + $stdout)
+      throw ("DB import failed: " + (Split-Path $file -Leaf) + "`n" + $stderr + $stdout)
     }
   }
 }
 
-function Ensure-FrontendDeps {
-  if (-not (Test-Path (Join-Path $FrontendDir "package.json"))) { return }
+function Install-NodeProjectDeps([string]$ProjectDir, [string]$Label) {
+  if (-not (Test-Path (Join-Path $ProjectDir "package.json"))) { return }
+  if ($InstalledNodeProjects.ContainsKey($ProjectDir)) { return }
+
   Ensure-Node18Plus
+  Write-Step ("Installing " + $Label + " dependencies ...")
+
+  $command = if (Test-Path (Join-Path $ProjectDir "package-lock.json")) { "ci" } else { "install" }
   if ($DryRun) {
-    Write-Host ("[dry-run] (cd `"$FrontendDir`" && npm ci)")
+    Write-Host ("[dry-run] (cd `"$ProjectDir`" && npm " + $command + ")")
+    $InstalledNodeProjects[$ProjectDir] = $true
     return
   }
-  Push-Location $FrontendDir
+
+  Push-Location $ProjectDir
   try {
-    & npm ci | Out-Host
-    if ($LASTEXITCODE -ne 0) { throw "npm ci failed" }
+    & npm $command | Out-Host
+    if ($LASTEXITCODE -ne 0) { throw ("npm " + $command + " failed") }
   } finally {
     Pop-Location
   }
+
+  $InstalledNodeProjects[$ProjectDir] = $true
+}
+
+function Ensure-FrontendDeps {
+  Install-NodeProjectDeps -ProjectDir $FrontendDir -Label "frontend"
+}
+
+function Ensure-AdminDeps {
+  Install-NodeProjectDeps -ProjectDir $AdminDir -Label "frontend-admin"
 }
 
 function Ensure-BackendDeps {
@@ -222,11 +309,20 @@ function Build-IfNeeded {
 
   Ensure-BackendDeps
   Ensure-FrontendDeps
+  Ensure-AdminDeps
 
   if ($DryRun) {
-    Write-Host ("[dry-run] (cd `"$BackendDir`" && mvn -DskipTests package)")
-    if ($Mode -eq "prod") {
+    if (Test-Path (Join-Path $BackendDir "pom.xml")) {
+      Write-Step "Building backend (Maven) ..."
+      Write-Host ("[dry-run] (cd `"$BackendDir`" && mvn -DskipTests package)")
+    }
+    if ($Mode -eq "prod" -and (Test-Path (Join-Path $FrontendDir "package.json"))) {
+      Write-Step "Building frontend (Vite) ..."
       Write-Host ("[dry-run] (cd `"$FrontendDir`" && npm run build)")
+    }
+    if ($Mode -eq "prod" -and (Test-Path (Join-Path $AdminDir "package.json"))) {
+      Write-Step "Building frontend-admin (Vite) ..."
+      Write-Host ("[dry-run] (cd `"$AdminDir`" && npm run build)")
     }
     return
   }
@@ -252,6 +348,17 @@ function Build-IfNeeded {
       Pop-Location
     }
   }
+
+  if ($Mode -eq "prod" -and (Test-Path (Join-Path $AdminDir "package.json"))) {
+    Write-Step "Building frontend-admin (Vite) ..."
+    Push-Location $AdminDir
+    try {
+      & npm run build | Out-Host
+      if ($LASTEXITCODE -ne 0) { throw "npm run build failed" }
+    } finally {
+      Pop-Location
+    }
+  }
 }
 
 function Start-ServiceProcess([string]$Name, [string]$WorkingDirectory, [string]$CommandLine) {
@@ -263,11 +370,17 @@ function Start-ServiceProcess([string]$Name, [string]$WorkingDirectory, [string]
     return
   }
 
-  $full = "cd `"$WorkingDirectory`"; " + $CommandLine
-  $p = Start-Process -FilePath "powershell" -ArgumentList @("-NoExit", "-Command", $full) -WorkingDirectory $WorkingDirectory -PassThru
+  $psExe = Get-PowerShellExe
+  $escapedDir = Escape-PwshSingleQuoted $WorkingDirectory
+  $cmd = "Set-Location -LiteralPath '$escapedDir'; $CommandLine"
+
+  if ($OpenWindow) {
+    $p = Start-Process -FilePath $psExe -ArgumentList @("-NoExit", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $cmd) -WorkingDirectory $WorkingDirectory -PassThru
+  } else {
+    $p = Start-Process -FilePath $psExe -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $cmd) -WorkingDirectory $WorkingDirectory -RedirectStandardOutput $log -RedirectStandardError $log -PassThru
+  }
   Set-Content -Path $pidfile -Value $p.Id -Encoding ASCII
-  Set-Content -Path $log -Value "" -Encoding UTF8
-  Write-Host ("Started " + $Name + " (pid=" + $p.Id + ")")
+  Write-Host ("Started " + $Name + " (pid=" + $p.Id + "), logs: " + $log)
 }
 
 function Start-App {
@@ -293,8 +406,22 @@ function Start-App {
     }
   }
 
+  if (Test-Path (Join-Path $AdminDir "package.json")) {
+    Ensure-AdminDeps
+    if ($Mode -eq "dev") {
+      Start-ServiceProcess "admin" $AdminDir "npm run dev"
+    } else {
+      Start-ServiceProcess "admin" $AdminDir "npm run preview -- --host 0.0.0.0 --port 4174"
+    }
+  }
+
   Write-Host ""
   Write-Host "Frontend: http://localhost:5173"
+  if ($Mode -eq "dev") {
+    Write-Host "Admin:    http://localhost:5174"
+  } else {
+    Write-Host "Admin:    http://localhost:4174"
+  }
   Write-Host "Backend:  http://localhost:8080/api"
 }
 

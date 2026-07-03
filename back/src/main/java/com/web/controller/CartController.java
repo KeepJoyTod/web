@@ -51,9 +51,12 @@ public class CartController {
     public ResponseEntity<Map<String, Object>> addCartItem(@RequestBody Map<String, Object> params) {
         Long userId = AuthInterceptor.getCurrentUserId();
         Long productId = Long.valueOf(params.get("productId").toString());
+        Long skuId = params.containsKey("skuId") && !params.get("skuId").toString().equals("default") 
+                     ? Long.valueOf(params.get("skuId").toString()) 
+                     : null;
         Integer quantity = Integer.valueOf(params.getOrDefault("quantity", "1").toString());
         
-        boolean success = cartService.addCartItem(userId, productId, quantity);
+        boolean success = cartService.addCartItem(userId, productId, skuId, quantity);
         
         return ResponseEntity.ok(MapUtil.builder(new java.util.HashMap<String, Object>())
                 .put("code", success ? 200 : 500)

@@ -1,0 +1,424 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.web.mapper.AdminMapper">
+
+    <select id="countUsers" resultType="long">
+        SELECT COUNT(*) FROM users
+    </select>
+
+    <select id="countProducts" resultType="long">
+        SELECT COUNT(*) FROM products
+    </select>
+
+    <select id="countOrders" resultType="long">
+        SELECT COUNT(*) FROM orders
+    </select>
+
+    <select id="sumTodaySales" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(pay_amount), 0)
+        FROM orders
+        WHERE status IN (1, 2, 3) AND DATE(create_time) = CURDATE()
+    </select>
+
+    <select id="countPendingShipmentOrders" resultType="long">
+        SELECT COUNT(*) FROM orders WHERE status = 1
+    </select>
+
+    <select id="countPendingAftersales" resultType="long">
+        SELECT COUNT(*) FROM aftersales WHERE status IN ('SUBMITTED', 'PROCESSING')
+    </select>
+
+    <select id="countLowStockProducts" resultType="long">
+        SELECT COUNT(*) FROM products WHERE stock &lt;= #{threshold} AND status != 0
+    </select>
+
+    <select id="recentOrders" resultType="map">
+        SELECT
+            o.id AS id,
+            o.order_no AS orderNo,
+            o.pay_amount AS payAmount,
+            o.status AS status,
+            o.create_time AS createTime,
+            u.account AS userAccount,
+            u.nickname AS userNickname
+        FROM orders o
+        LEFT JOIN users u ON o.user_id = u.id
+        ORDER BY o.create_time DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="listProducts" resultType="com.web.pojo.Product">
+        SELECT * FROM products
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (name LIKE CONCAT('%', #{keyword}, '%') OR description LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+            <if test="categoryId != null">
+                AND category_id = #{categoryId}
+            </if>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+        </where>
+        ORDER BY create_time DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <select id="countProductList" resultType="long">
+        SELECT COUNT(*) FROM products
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (name LIKE CONCAT('%', #{keyword}, '%') OR description LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+            <if test="categoryId != null">
+                AND category_id = #{categoryId}
+            </if>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+        </where>
+    </select>
+
+    <select id="getProductById" resultType="com.web.pojo.Product">
+        SELECT * FROM products WHERE id = #{id}
+    </select>
+
+    <select id="listProductMedia" resultType="com.web.pojo.ProductMedia">
+        SELECT * FROM product_media WHERE product_id = #{productId} ORDER BY sort_order ASC, id ASC
+    </select>
+
+    <select id="listProductSkus" resultType="com.web.pojo.ProductSku">
+        SELECT * FROM product_skus WHERE product_id = #{productId} ORDER BY id ASC
+    </select>
+
+    <insert id="insertProductMedia" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO product_media(product_id, url, sort_order)
+        VALUES (#{productId}, #{url}, #{sortOrder})
+    </insert>
+
+    <delete id="deleteProductMediaByProductId">
+        DELETE FROM product_media WHERE product_id = #{productId}
+    </delete>
+
+    <insert id="insertProductSku" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO product_skus(product_id, attrs, price, stock)
+        VALUES (#{productId}, #{attrs}, #{price}, #{stock})
+    </insert>
+
+    <delete id="deleteProductSkuByProductId">
+        DELETE FROM product_skus WHERE product_id = #{productId}
+    </delete>
+
+    <select id="listCategories" resultType="com.web.pojo.Category">
+        SELECT * FROM categories ORDER BY parent_id ASC, id ASC
+    </select>
+
+    <insert id="insertCategory" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO categories(name, parent_id, create_time)
+        VALUES (#{name}, #{parentId}, NOW())
+    </insert>
+
+    <update id="updateCategory">
+        UPDATE categories
+        SET name = #{name}, parent_id = #{parentId}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteCategory">
+        DELETE FROM categories WHERE id = #{id}
+    </delete>
+
+    <select id="listOrders" resultType="map">
+        SELECT
+            o.id AS id,
+            o.user_id AS userId,
+            o.order_no AS orderNo,
+            o.total_amount AS totalAmount,
+            o.pay_amount AS payAmount,
+            o.status AS status,
+            o.address_id AS addressId,
+            o.logistics_company AS logisticsCompany,
+            o.logistics_no AS logisticsNo,
+            o.create_time AS createTime,
+            o.update_time AS updateTime,
+            u.account AS userAccount,
+            u.nickname AS userNickname
+        FROM orders o
+        LEFT JOIN users u ON o.user_id = u.id
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (
+                    o.order_no LIKE CONCAT('%', #{keyword}, '%')
+                    OR u.account LIKE CONCAT('%', #{keyword}, '%')
+                    OR u.nickname LIKE CONCAT('%', #{keyword}, '%')
+                )
+            </if>
+            <if test="status != null">
+                AND o.status = #{status}
+            </if>
+            <if test="dateFrom != null and dateFrom != ''">
+                AND o.create_time &gt;= #{dateFrom}
+            </if>
+            <if test="dateTo != null and dateTo != ''">
+                AND o.create_time &lt; DATE_ADD(#{dateTo}, INTERVAL 1 DAY)
+            </if>
+        </where>
+        ORDER BY o.create_time DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <select id="countOrderList" resultType="long">
+        SELECT COUNT(*)
+        FROM orders o
+        LEFT JOIN users u ON o.user_id = u.id
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (
+                    o.order_no LIKE CONCAT('%', #{keyword}, '%')
+                    OR u.account LIKE CONCAT('%', #{keyword}, '%')
+                    OR u.nickname LIKE CONCAT('%', #{keyword}, '%')
+                )
+            </if>
+            <if test="status != null">
+                AND o.status = #{status}
+            </if>
+            <if test="dateFrom != null and dateFrom != ''">
+                AND o.create_time &gt;= #{dateFrom}
+            </if>
+            <if test="dateTo != null and dateTo != ''">
+                AND o.create_time &lt; DATE_ADD(#{dateTo}, INTERVAL 1 DAY)
+            </if>
+        </where>
+    </select>
+
+    <select id="getOrderDetail" resultType="map">
+        SELECT
+            o.id AS id,
+            o.user_id AS userId,
+            o.order_no AS orderNo,
+            o.total_amount AS totalAmount,
+            o.pay_amount AS payAmount,
+            o.status AS status,
+            o.address_id AS addressId,
+            o.logistics_company AS logisticsCompany,
+            o.logistics_no AS logisticsNo,
+            o.create_time AS createTime,
+            o.update_time AS updateTime,
+            u.account AS userAccount,
+            u.nickname AS userNickname
+        FROM orders o
+        LEFT JOIN users u ON o.user_id = u.id
+        WHERE o.id = #{id}
+    </select>
+
+    <select id="listOrderItems" resultType="map">
+        SELECT
+            id AS id,
+            order_id AS orderId,
+            product_id AS productId,
+            sku_id AS skuId,
+            product_name AS productName,
+            product_image AS productImage,
+            price AS price,
+            quantity AS quantity,
+            total_amount AS totalAmount,
+            create_time AS createTime
+        FROM order_items
+        WHERE order_id = #{orderId}
+        ORDER BY id ASC
+    </select>
+
+    <select id="getOrderAddress" resultType="map">
+        SELECT
+            id AS id,
+            user_id AS userId,
+            receiver AS receiver,
+            phone AS phone,
+            region AS region,
+            detail AS detail,
+            is_default AS isDefault
+        FROM user_addresses
+        WHERE id = #{addressId}
+    </select>
+
+    <select id="getOrderPayment" resultType="map">
+        SELECT
+            id AS id,
+            order_id AS orderId,
+            trade_id AS tradeId,
+            channel AS channel,
+            amount AS amount,
+            status AS status,
+            paid_at AS paidAt,
+            create_time AS createTime
+        FROM payments
+        WHERE order_id = #{orderId}
+        ORDER BY create_time DESC
+        LIMIT 1
+    </select>
+
+    <update id="updateOrderStatus">
+        UPDATE orders SET status = #{status}, update_time = NOW() WHERE id = #{id}
+    </update>
+
+    <update id="shipOrder">
+        UPDATE orders
+        SET status = 2,
+            logistics_company = #{logisticsCompany},
+            logistics_no = #{logisticsNo},
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <select id="listAftersales" resultType="map">
+        SELECT
+            a.id AS id,
+            a.user_id AS userId,
+            a.order_id AS orderId,
+            a.order_item_id AS orderItemId,
+            a.qty AS qty,
+            a.type AS type,
+            a.reason AS reason,
+            a.status AS status,
+            a.admin_remark AS adminRemark,
+            a.create_time AS createTime,
+            a.update_time AS updateTime,
+            u.account AS userAccount,
+            u.nickname AS userNickname,
+            o.order_no AS orderNo
+        FROM aftersales a
+        LEFT JOIN users u ON a.user_id = u.id
+        LEFT JOIN orders o ON a.order_id = o.id
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (
+                    CAST(a.id AS CHAR) LIKE CONCAT('%', #{keyword}, '%')
+                    OR o.order_no LIKE CONCAT('%', #{keyword}, '%')
+                    OR u.account LIKE CONCAT('%', #{keyword}, '%')
+                    OR u.nickname LIKE CONCAT('%', #{keyword}, '%')
+                )
+            </if>
+            <if test="status != null and status != ''">
+                AND a.status = #{status}
+            </if>
+        </where>
+        ORDER BY a.create_time DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <select id="countAftersales" resultType="long">
+        SELECT COUNT(*)
+        FROM aftersales a
+        LEFT JOIN users u ON a.user_id = u.id
+        LEFT JOIN orders o ON a.order_id = o.id
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (
+                    CAST(a.id AS CHAR) LIKE CONCAT('%', #{keyword}, '%')
+                    OR o.order_no LIKE CONCAT('%', #{keyword}, '%')
+                    OR u.account LIKE CONCAT('%', #{keyword}, '%')
+                    OR u.nickname LIKE CONCAT('%', #{keyword}, '%')
+                )
+            </if>
+            <if test="status != null and status != ''">
+                AND a.status = #{status}
+            </if>
+        </where>
+    </select>
+
+    <select id="getAftersaleDetail" resultType="map">
+        SELECT
+            a.id AS id,
+            a.user_id AS userId,
+            a.order_id AS orderId,
+            a.order_item_id AS orderItemId,
+            a.qty AS qty,
+            a.evidence AS evidence,
+            a.type AS type,
+            a.reason AS reason,
+            a.status AS status,
+            a.admin_remark AS adminRemark,
+            a.create_time AS createTime,
+            a.update_time AS updateTime,
+            u.account AS userAccount,
+            u.nickname AS userNickname,
+            o.order_no AS orderNo
+        FROM aftersales a
+        LEFT JOIN users u ON a.user_id = u.id
+        LEFT JOIN orders o ON a.order_id = o.id
+        WHERE a.id = #{id}
+    </select>
+
+    <update id="reviewAftersale">
+        UPDATE aftersales
+        SET status = #{status}, admin_remark = #{adminRemark}, update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <select id="listUsers" resultType="map">
+        SELECT
+            id AS id,
+            account AS account,
+            nickname AS nickname,
+            avatar AS avatar,
+            role AS role,
+            status AS status,
+            create_time AS createTime,
+            update_time AS updateTime
+        FROM users
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (account LIKE CONCAT('%', #{keyword}, '%') OR nickname LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+            <if test="role != null and role != ''">
+                AND role = #{role}
+            </if>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+        </where>
+        ORDER BY create_time DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <select id="countUserList" resultType="long">
+        SELECT COUNT(*)
+        FROM users
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (account LIKE CONCAT('%', #{keyword}, '%') OR nickname LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+            <if test="role != null and role != ''">
+                AND role = #{role}
+            </if>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+        </where>
+    </select>
+
+    <select id="getUserDetail" resultType="map">
+        SELECT
+            u.id AS id,
+            u.account AS account,
+            u.nickname AS nickname,
+            u.avatar AS avatar,
+            u.role AS role,
+            u.status AS status,
+            u.create_time AS createTime,
+            u.update_time AS updateTime,
+            COUNT(DISTINCT o.id) AS orderCount,
+            COALESCE(SUM(CASE WHEN o.status IN (1, 2, 3) THEN o.pay_amount ELSE 0 END), 0) AS totalSpent,
+            COUNT(DISTINCT a.id) AS aftersaleCount
+        FROM users u
+        LEFT JOIN orders o ON u.id = o.user_id
+        LEFT JOIN aftersales a ON u.id = a.user_id
+        WHERE u.id = #{id}
+        GROUP BY u.id, u.account, u.nickname, u.avatar, u.role, u.status, u.create_time, u.update_time
+    </select>
+
+    <update id="updateUserStatus">
+        UPDATE users SET status = #{status}, update_time = NOW() WHERE id = #{id}
+    </update>
+</mapper>

@@ -9,15 +9,24 @@
     </insert>
 
     <select id="listByUser" resultType="com.web.pojo.Review">
-        SELECT * FROM reviews
-        WHERE user_id = #{userId}
+        SELECT r.*, u.nickname as nickname FROM reviews r
+        LEFT JOIN users u ON r.user_id = u.id
+        WHERE r.user_id = #{userId}
         <if test="productId != null">
-            AND product_id = #{productId}
+            AND r.product_id = #{productId}
         </if>
         <if test="orderId != null">
-            AND order_id = #{orderId}
+            AND r.order_id = #{orderId}
         </if>
-        ORDER BY create_time DESC
+        ORDER BY r.create_time DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <select id="listByProduct" resultType="com.web.pojo.Review">
+        SELECT r.*, u.nickname as nickname FROM reviews r
+        LEFT JOIN users u ON r.user_id = u.id
+        WHERE r.product_id = #{productId}
+        ORDER BY r.create_time DESC
         LIMIT #{offset}, #{limit}
     </select>
 

@@ -9,7 +9,7 @@ import java.util.List;
 public interface CartItemMapper {
     List<CartItem> getListByUserId(Long userId);
     
-    CartItem getByUserIdAndProductId(@Param("userId") Long userId, @Param("productId") Long productId);
+    CartItem getByUserIdAndProductId(@Param("userId") Long userId, @Param("productId") Long productId, @Param("skuId") Long skuId);
     
     int insert(CartItem cartItem);
     

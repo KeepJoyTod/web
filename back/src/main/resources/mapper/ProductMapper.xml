@@ -3,8 +3,46 @@
         "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.web.mapper.ProductMapper">
 
-    <select id="getById" resultType="com.web.pojo.Product">
-        SELECT * FROM products WHERE id = #{id} AND status != 0
+    <resultMap id="ProductDetailMap" type="com.web.pojo.Product">
+        <id property="id" column="id"/>
+        <result property="categoryId" column="category_id"/>
+        <result property="name" column="name"/>
+        <result property="description" column="description"/>
+        <result property="tags" column="tags"/>
+        <result property="rating" column="rating"/>
+        <result property="sold" column="sold"/>
+        <result property="activityLabel" column="activity_label"/>
+        <result property="originalPrice" column="original_price"/>
+        <result property="price" column="price"/>
+        <result property="stock" column="stock"/>
+        <result property="status" column="status"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+        <collection property="mediaList" ofType="com.web.pojo.ProductMedia">
+            <id property="id" column="media_id"/>
+            <result property="productId" column="id"/>
+            <result property="url" column="media_url"/>
+            <result property="sortOrder" column="media_sort_order"/>
+        </collection>
+        <collection property="skuList" ofType="com.web.pojo.ProductSku">
+            <id property="id" column="sku_id"/>
+            <result property="productId" column="id"/>
+            <result property="attrs" column="sku_attrs"/>
+            <result property="price" column="sku_price"/>
+            <result property="stock" column="sku_stock"/>
+        </collection>
+    </resultMap>
+
+    <select id="getById" resultMap="ProductDetailMap">
+        SELECT 
+            p.*,
+            m.id as media_id, m.url as media_url, m.sort_order as media_sort_order,
+            s.id as sku_id, s.attrs as sku_attrs, s.price as sku_price, s.stock as sku_stock
+        FROM products p
+        LEFT JOIN product_media m ON p.id = m.product_id
+        LEFT JOIN product_skus s ON p.id = s.product_id
+        WHERE p.id = #{id} AND p.status != 0
+        ORDER BY m.sort_order ASC
     </select>
 
     <select id="getList" resultType="com.web.pojo.Product">
@@ -12,7 +50,7 @@
         <where>
             status != 0
             <if test="keyword != null and keyword != ''">
-                AND name LIKE CONCAT('%', #{keyword}, '%')
+                AND MATCH(name, description) AGAINST(#{keyword} IN NATURAL LANGUAGE MODE)
             </if>
             <if test="categoryId != null">
                 AND category_id = #{categoryId}
@@ -23,8 +61,8 @@
     </select>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO products(category_id, name, description, tags, price, stock, status, create_time, update_time)
-        VALUES (#{categoryId}, #{name}, #{description}, #{tags}, #{price}, #{stock}, #{status}, NOW(), NOW())
+        INSERT INTO products(category_id, name, description, tags, rating, sold, activity_label, original_price, price, stock, status, create_time, update_time)
+        VALUES (#{categoryId}, #{name}, #{description}, #{tags}, #{rating}, #{sold}, #{activityLabel}, #{originalPrice}, #{price}, #{stock}, #{status}, NOW(), NOW())
     </insert>
 
     <update id="update">
@@ -34,6 +72,10 @@
             <if test="name != null">name = #{name},</if>
             <if test="description != null">description = #{description},</if>
             <if test="tags != null">tags = #{tags},</if>
+            <if test="rating != null">rating = #{rating},</if>
+            <if test="sold != null">sold = #{sold},</if>
+            <if test="activityLabel != null">activity_label = #{activityLabel},</if>
+            <if test="originalPrice != null">original_price = #{originalPrice},</if>
             <if test="price != null">price = #{price},</if>
             <if test="stock != null">stock = #{stock},</if>
             <if test="status != null">status = #{status},</if>
@@ -45,5 +87,56 @@
     <delete id="delete">
         UPDATE products SET status = 0, update_time = NOW() WHERE id = #{id}
     </delete>
+
+    <select id="getMediaByProductId" resultType="com.web.pojo.ProductMedia">
+        SELECT * FROM product_media WHERE product_id = #{productId} ORDER BY sort_order ASC
+    </select>
+
+    <select id="getSkusByProductId" resultType="com.web.pojo.ProductSku">
+        SELECT * FROM product_skus WHERE product_id = #{productId}
+    </select>
+
+    <select id="getSkuById" resultType="com.web.pojo.ProductSku">
+        SELECT * FROM product_skus WHERE id = #{skuId}
+    </select>
+
+    <select id="getSkuByIdAndProductId" resultType="com.web.pojo.ProductSku">
+        SELECT * FROM product_skus WHERE id = #{skuId} AND product_id = #{productId}
+    </select>
+
+    <update id="updateSku">
+        UPDATE product_skus
+        <set>
+            <if test="price != null">price = #{price},</if>
+            <if test="stock != null">stock = #{stock},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <update id="decreaseSkuStock">
+        UPDATE product_skus
+        SET stock = stock - #{quantity}
+        WHERE id = #{skuId}
+          AND product_id = #{productId}
+          AND stock &gt;= #{quantity}
+    </update>
+
+    <update id="decreaseProductStock">
+        UPDATE products
+        SET stock = stock - #{quantity}, update_time = NOW()
+        WHERE id = #{productId}
+          AND stock &gt;= #{quantity}
+    </update>
+
+    <update id="syncProductStockFromSkus">
+        UPDATE products p
+        SET p.stock = (
+            SELECT COALESCE(SUM(s.stock), 0)
+            FROM product_skus s
+            WHERE s.product_id = #{productId}
+        ),
+        p.update_time = NOW()
+        WHERE p.id = #{productId}
+    </update>
 
 </mapper>

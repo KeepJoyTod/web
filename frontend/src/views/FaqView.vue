@@ -203,7 +203,7 @@ const callHotline = () => {
 <style scoped>
 .page {
   min-height: 100svh;
-  background: #f9fafb;
+  background: var(--bg);
   display: flex;
   flex-direction: column;
 }
@@ -226,7 +226,7 @@ const callHotline = () => {
   background: transparent;
   padding: 0;
   cursor: pointer;
-  color: #4a5565;
+  color: var(--text);
   font: 400 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 
@@ -238,12 +238,12 @@ const callHotline = () => {
 .title {
   margin: 12px 0 8px;
   font: 600 30px/36px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #0a0a0a;
+  color: var(--text-h);
 }
 
 .sub {
   font: 400 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #4a5565;
+  color: var(--text);
   margin-bottom: 18px;
 }
 
@@ -252,8 +252,8 @@ const callHotline = () => {
   width: 100%;
   height: 50px;
   border-radius: 16px;
-  border: 1px solid #d1d5dc;
-  background: #ffffff;
+  border: 1px solid var(--border);
+  background: var(--bg);
   display: flex;
   align-items: center;
   padding: 12px 16px 12px 48px;
@@ -266,7 +266,7 @@ const callHotline = () => {
   height: 20px;
   border-radius: 999px;
   box-sizing: border-box;
-  border: 2px solid rgba(10, 10, 10, 0.5);
+  border: 2px solid var(--text);
 }
 
 .searchIcon::after {
@@ -274,7 +274,7 @@ const callHotline = () => {
   position: absolute;
   width: 10px;
   height: 2px;
-  background: rgba(10, 10, 10, 0.5);
+  background: var(--text);
   right: -7px;
   bottom: -4px;
   transform: rotate(45deg);
@@ -287,7 +287,7 @@ const callHotline = () => {
   outline: none;
   background: transparent;
   font: 400 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #0a0a0a;
+  color: var(--text-h);
 }
 
 .tabs {
@@ -302,16 +302,17 @@ const callHotline = () => {
   height: 36px;
   padding: 0 16px;
   border-radius: 999px;
-  border: 0;
-  background: #ffffff;
+  border: 1px solid var(--border);
+  background: var(--bg);
   cursor: pointer;
-  color: #364153;
+  color: var(--text);
   font: 500 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 
 .tab.on {
-  background: #9810fa;
+  background: var(--accent);
   color: #ffffff;
+  border-color: var(--accent);
 }
 
 .list {
@@ -320,7 +321,8 @@ const callHotline = () => {
 }
 
 .item {
-  background: #ffffff;
+  background: var(--bg);
+  border: 1px solid var(--border);
   border-radius: 16px;
   overflow: hidden;
 }
@@ -339,7 +341,7 @@ const callHotline = () => {
 
 .q {
   font: 500 18px/27px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #101828;
+  color: var(--text-h);
   padding-right: 16px;
 }
 
@@ -357,32 +359,34 @@ const callHotline = () => {
 .answer {
   padding: 0 24px 18px;
   font: 400 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #4a5565;
+  color: var(--text);
 }
 
 .empty {
   padding: 18px 16px;
   border-radius: 16px;
-  background: #ffffff;
-  color: #4a5565;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
   font: 400 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 
 .cta {
   margin-top: 22px;
-  background: #ffffff;
+  background: var(--bg);
+  border: 1px solid var(--border);
   border-radius: 16px;
   padding: 24px;
 }
 
 .ctaTitle {
-  color: #0a0a0a;
+  color: var(--text-h);
   font: 600 18px/27px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 
 .ctaSub {
   margin-top: 4px;
-  color: #4a5565;
+  color: var(--text);
   font: 400 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 
@@ -404,13 +408,13 @@ const callHotline = () => {
 
 .ctaPrimary {
   border: 0;
-  background: #9810fa;
+  background: var(--accent);
   color: #ffffff;
 }
 
 .ctaGhost {
-  border: 1px solid #d1d5dc;
-  background: #ffffff;
-  color: #9810fa;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--accent);
 }
 </style>

@@ -7,6 +7,7 @@ import { useOrderDraftStore } from '../stores/orderDraft'
 import { useOrdersStore } from '../stores/orders'
 import { useToastStore } from '../stores/toast'
 
+import backIconUrl from '../assets/figma/product-detail/back.svg'
 import macbookImgUrl from '../assets/figma/orders/product-macbook.png'
 import statusCancelIconUrl from '../assets/figma/orders/icon-status-cancel.svg'
 import statusPayIconUrl from '../assets/figma/orders/icon-status-pay.svg'
@@ -82,9 +83,17 @@ onMounted(() => {
 
 <template>
   <div class="page">
-    <main class="main" aria-live="polite">
-      <h1 class="h1">我的订单</h1>
+    <header class="headerSticky">
+      <div class="headerContent">
+        <button class="backBtn" type="button" aria-label="返回" @click="router.push({ name: 'me' })">
+          <img class="backIcon" :src="backIconUrl" alt="" aria-hidden="true" />
+          <span class="backText">返回</span>
+        </button>
+        <h1 class="h1">我的订单</h1>
+      </div>
+    </header>
 
+    <main class="main" aria-live="polite">
       <UiEmptyState v-if="list.length === 0" title="暂无订单" desc="去首页看看有什么好物" action-text="去首页" @action="router.push({ name: 'home' })" />
 
       <div v-else class="list" aria-label="订单列表">
@@ -139,21 +148,58 @@ onMounted(() => {
 <style scoped>
 .page {
   min-height: 100svh;
-  background: #f9fafb;
+  background: var(--bg);
 }
 
 .main {
-  padding: 24px 16px 64px;
+  padding: 0 16px 64px; /* 移除顶部 padding */
   width: min(864px, 100%);
   margin: 0 auto;
   display: grid;
   gap: 16px;
 }
 
+.headerSticky {
+  position: sticky;
+  top: 0;
+  background: var(--bg);
+  z-index: 100;
+  border-bottom: 1px solid var(--border);
+  transition: border-color 0.2s;
+}
+
+/* 当页面滚动时，可以通过 JS 或简单 CSS 给它加阴影或边框，但这里先保持简洁 */
+
+.headerContent {
+  width: min(864px, 100%);
+  margin: 0 auto;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.backBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  color: var(--text);
+  font: 500 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+
+.backIcon {
+  width: 20px;
+  height: 20px;
+}
+
 .h1 {
   margin: 0;
   font: 600 24px/32px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #0a0a0a;
+  color: var(--text-h);
 }
 
 .list {
@@ -163,8 +209,9 @@ onMounted(() => {
 
 .card {
   border-radius: 16px;
-  background: #ffffff;
-  box-shadow: 0px 1px 2px -1px rgba(0, 0, 0, 0.1), 0px 1px 3px 0px rgba(0, 0, 0, 0.1);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
   display: grid;
   overflow: hidden;
 }
@@ -175,8 +222,8 @@ onMounted(() => {
   align-items: center;
   gap: 12px;
   padding: 12px 24px;
-  background: #faf5ff;
-  border-bottom: 1px solid #f3e8ff;
+  background: var(--accent-bg);
+  border-bottom: 1px solid var(--accent-border);
 }
 
 .headLeft {
@@ -189,7 +236,7 @@ onMounted(() => {
 .orderNo,
 .time {
   font: 400 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #4a5565;
+  color: var(--text);
 }
 
 .status {
@@ -205,7 +252,7 @@ onMounted(() => {
 
 .statusText {
   font: 500 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #0a0a0a;
+  color: var(--text-h);
 }
 
 .cardBody {
@@ -225,7 +272,7 @@ onMounted(() => {
   height: 80px;
   border-radius: 10px;
   object-fit: cover;
-  background: #f3f4f6;
+  background: var(--code-bg);
 }
 
 .prodMid {
@@ -237,7 +284,7 @@ onMounted(() => {
 
 .prodTitle {
   font: 500 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #0a0a0a;
+  color: var(--text-h);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -245,7 +292,7 @@ onMounted(() => {
 
 .prodQty {
   font: 400 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #4a5565;
+  color: var(--text);
 }
 
 .prodRight {
@@ -255,12 +302,12 @@ onMounted(() => {
 
 .prodPrice {
   font: 500 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #0a0a0a;
+  color: var(--text-h);
 }
 
 .cardFoot {
   padding: 16px 0 0;
-  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  border-top: 1px solid var(--border);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -283,12 +330,12 @@ onMounted(() => {
 }
 
 .link {
-  color: #9810fa;
+  color: var(--accent);
 }
 
 .linkGray {
   font-weight: 500;
-  color: #4a5565;
+  color: var(--text);
 }
 
 .amounts {
@@ -299,11 +346,11 @@ onMounted(() => {
 
 .amountLabel {
   font: 400 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #4a5565;
+  color: var(--text);
 }
 
 .amountVal {
   font: 400 24px/32px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #e7000b;
+  color: var(--danger);
 }
 </style>

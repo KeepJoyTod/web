@@ -194,7 +194,7 @@ onMounted(async () => {
 <style scoped>
 .page {
   min-height: 100svh;
-  background: #f9fafb;
+  background: var(--bg);
 }
 
 .main {
@@ -224,7 +224,7 @@ onMounted(async () => {
   padding: 0;
   cursor: pointer;
   font: 500 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #4a5565;
+  color: var(--text);
 }
 
 .backIcon {
@@ -235,13 +235,13 @@ onMounted(async () => {
 .h1 {
   margin: 0;
   font: 600 30px/36px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #0a0a0a;
+  color: var(--text-h);
 }
 
 .statusCard {
   border-radius: 16px;
   padding: 24px 24px 0;
-  background: linear-gradient(135deg, rgba(173, 70, 255, 1) 0%, rgba(43, 127, 255, 1) 100%);
+  background: var(--accent);
   color: #ffffff;
   display: grid;
   gap: 16px;
@@ -308,7 +308,8 @@ onMounted(async () => {
 
 .panel {
   border-radius: 16px;
-  background: #ffffff;
+  background: var(--bg);
+  border: 1px solid var(--border);
   padding: 24px 24px 0;
   display: grid;
   gap: 16px;
@@ -316,7 +317,7 @@ onMounted(async () => {
 
 .panelTitle {
   font: 600 18px/27px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #0a0a0a;
+  color: var(--text-h);
 }
 
 .infoRows {
@@ -331,7 +332,7 @@ onMounted(async () => {
   align-items: center;
   gap: 12px;
   padding: 8px 0;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  border-bottom: 1px solid var(--border);
 }
 
 .infoRow.last {
@@ -340,7 +341,7 @@ onMounted(async () => {
 
 .k {
   font: 400 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #4a5565;
+  color: var(--text);
 }
 
 .v {
@@ -348,7 +349,7 @@ onMounted(async () => {
   align-items: center;
   gap: 12px;
   font: 500 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #0a0a0a;
+  color: var(--text-h);
 }
 
 .mono {
@@ -382,7 +383,7 @@ onMounted(async () => {
   align-items: center;
   gap: 4px;
   padding: 0;
-  color: #9810fa;
+  color: var(--accent);
   font: 400 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 
@@ -413,20 +414,20 @@ onMounted(async () => {
   width: 24px;
   height: 24px;
   border-radius: 9999px;
-  background: #e5e7eb;
-  border: 8px solid #ffffff;
-  box-shadow: 0 0 0 2px #e5e7eb;
+  background: var(--border);
+  border: 8px solid var(--bg);
+  box-shadow: 0 0 0 2px var(--border);
 }
 
 .dot.on {
-  background: linear-gradient(135deg, rgba(173, 70, 255, 1) 0%, rgba(43, 127, 255, 1) 100%);
-  box-shadow: 0 0 0 2px #ad46ff;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent);
 }
 
 .stem {
   width: 2px;
   height: 40px;
-  background: #e5e7eb;
+  background: var(--border);
   margin-top: 8px;
 }
 
@@ -437,21 +438,21 @@ onMounted(async () => {
 
 .tlTitle {
   font: 500 16px/24px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #0a0a0a;
+  color: var(--text-h);
 }
 
 .tlTitle.on {
-  color: #9810fa;
+  color: var(--accent);
 }
 
 .tlDesc {
   font: 400 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #4a5565;
+  color: var(--text);
 }
 
 .tlTime {
   font: 400 14px/20px Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #6a7282;
+  color: var(--text);
   white-space: nowrap;
 }
 </style>

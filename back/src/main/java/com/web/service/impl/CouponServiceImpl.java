@@ -42,8 +42,8 @@ public class CouponServiceImpl implements CouponService {
             return result;
         }
         
-        LocalDateTime now = LocalDateTime.now();
-        if (now.isBefore(coupon.getStartTime()) || now.isAfter(coupon.getEndTime())) {
+        java.util.Date now = new java.util.Date();
+        if (now.before(coupon.getStartTime()) || now.after(coupon.getEndTime())) {
             result.put("valid", false);
             result.put("reason", "不在优惠券使用有效期内");
             return result;

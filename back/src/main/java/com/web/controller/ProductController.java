@@ -40,15 +40,10 @@ public class ProductController {
         
         List<Product> list = productService.getProductList(keyword, category, page, size);
         
-        // 实体转 Map 返回，不使用 DTO
-        List<Map<String, Object>> mapList = list.stream()
-                .map(product -> BeanUtil.beanToMap(product, false, true))
-                .collect(Collectors.toList());
-                
         Map<String, Object> result = MapUtil.builder(new java.util.HashMap<String, Object>())
                 .put("code", 200)
                 .put("message", "success")
-                .put("data", mapList)
+                .put("data", list)
                 .build();
                 
         return ResponseEntity.ok(result);
@@ -61,8 +56,8 @@ public class ProductController {
     @Operation(summary = "获取商品详情", description = "根据商品ID获取详细信息")
     @GetMapping("/{id}")
     public ResponseEntity<Map<String, Object>> getProductById(@Parameter(description = "商品ID") @PathVariable Long id) {
-        Product product = productService.getProductById(id);
-        if (product == null) {
+        Map<String, Object> data = productService.getProductDetail(id);
+        if (data == null) {
             return ResponseEntity.status(404).body(
                 MapUtil.builder(new java.util.HashMap<String, Object>())
                     .put("code", 404)
@@ -70,9 +65,6 @@ public class ProductController {
                     .build()
             );
         }
-        
-        // 实体转 Map
-        Map<String, Object> data = BeanUtil.beanToMap(product, false, true);
         
         Map<String, Object> result = MapUtil.builder(new java.util.HashMap<String, Object>())
                 .put("code", 200)

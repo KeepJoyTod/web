@@ -42,5 +42,11 @@ public class ReviewServiceImpl implements ReviewService {
     public List<Review> list(Long userId, int page, int size, Long productId, Long orderId) {
         int offset = (page - 1) * size;
         return reviewMapper.listByUser(userId, offset, size, productId, orderId);
-        }
+    }
+
+    @Override
+    public List<Review> listByProduct(int page, int size, Long productId) {
+        int offset = (page - 1) * size;
+        return reviewMapper.listByProduct(productId, offset, size);
+    }
 }

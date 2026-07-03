@@ -21,6 +21,11 @@ public class Order {
     private BigDecimal payAmount;   // 实际支付金额
     private Integer status;         // 订单状态 (0-待支付, 1-已支付, 2-已发货, 3-已完成, 4-已取消)
     private Long addressId;         // 收货地址ID
-    private LocalDateTime createTime;
-    private LocalDateTime updateTime;
+    private String logisticsCompany;
+    private String logisticsNo;
+    private java.util.Date createTime;
+    private java.util.Date updateTime;
+
+    // 关联字段
+    private java.util.List<OrderItem> items;
 }

@@ -48,7 +48,19 @@ public class ReviewController {
                                                     @RequestParam(required = false) Long productId,
                                                     @RequestParam(required = false) Long orderId) {
         Long userId = AuthInterceptor.getCurrentUserId();
-        List<Review> list = reviewService.list(userId, page, size, productId, orderId);
+        List<Review> list;
+
+        // 如果提供了 productId 且不是专门查“我的评价”，则返回该商品的所有评价
+        if (productId != null && orderId == null) {
+            list = reviewService.listByProduct(page, size, productId);
+        } else {
+            // 否则返回当前用户的评价（需要登录）
+            if (userId == null) {
+                return ResponseEntity.status(401).body(Map.of("code", 401, "message", "Unauthorized"));
+            }
+            list = reviewService.list(userId, page, size, productId, orderId);
+        }
+
         List<Map<String, Object>> mapList = list.stream()
                 .map(x -> BeanUtil.beanToMap(x, false, true))
                 .collect(Collectors.toList());

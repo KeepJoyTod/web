@@ -35,6 +35,9 @@ const router = useRouter()
   padding: 12px 16px;
   border-bottom: 1px solid var(--border);
   background: var(--bg);
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
 
 .title {

@@ -10,4 +10,6 @@ public interface ReviewMapper {
     int insert(Review review);
     List<Review> listByUser(@Param("userId") Long userId, @Param("offset") int offset, @Param("limit") int limit,
                             @Param("productId") Long productId, @Param("orderId") Long orderId);
+
+    List<Review> listByProduct(@Param("productId") Long productId, @Param("offset") int offset, @Param("limit") int limit);
 }

@@ -17,6 +17,7 @@ public class IndexController {
     @GetMapping("/")
     public Map<String, Object> index() {
         return MapUtil.builder(new java.util.HashMap<String, Object>())
+                .put("code", 200)
                 .put("status", "UP")
                 .put("message", "ProjectKu Backend is running")
                 .put("swagger_ui", "/api/swagger-ui.html")

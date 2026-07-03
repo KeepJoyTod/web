@@ -1,6 +1,7 @@
 package com.web.service.impl;
 
 import cn.hutool.core.util.IdUtil;
+import com.web.exception.BusinessException;
 import com.web.mapper.CartItemMapper;
 import com.web.mapper.OrderItemMapper;
 import com.web.mapper.OrderMapper;
@@ -9,6 +10,7 @@ import com.web.pojo.CartItem;
 import com.web.pojo.Order;
 import com.web.pojo.OrderItem;
 import com.web.pojo.Product;
+import com.web.pojo.ProductSku;
 import com.web.service.OrderService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -62,7 +64,7 @@ public class OrderServiceImpl implements OrderService {
         // 1. 获取购物车选中的商品
         List<CartItem> cartItems = cartItemMapper.getListByUserId(userId);
         if (cartItems == null || cartItems.isEmpty()) {
-            throw new RuntimeException("Cart is empty");
+            throw new BusinessException("CART_EMPTY", "购物车为空");
         }
         
         List<CartItem> checkedItems = cartItems.stream()
@@ -77,24 +79,48 @@ public class OrderServiceImpl implements OrderService {
         
         // 2. 预占库存与计算价格
         for (CartItem cartItem : checkedItems) {
-            Product product = productMapper.getById(cartItem.getProductId());
-            if (product == null || product.getStock() < cartItem.getQuantity()) {
-                throw new RuntimeException("Insufficient stock for product: " + cartItem.getProductId());
+            if (cartItem.getQuantity() == null || cartItem.getQuantity() <= 0) {
+                throw new BusinessException("INVALID_QUANTITY", "商品数量不正确");
             }
-            
-            // 简单扣减库存
-            product.setStock(product.getStock() - cartItem.getQuantity());
-            productMapper.update(product);
-            
-            BigDecimal itemTotal = product.getPrice().multiply(new BigDecimal(cartItem.getQuantity()));
+
+            Product product = productMapper.getById(cartItem.getProductId());
+            if (product == null) {
+                throw new BusinessException("PRODUCT_NOT_FOUND", "商品不存在: " + cartItem.getProductId());
+            }
+
+            BigDecimal unitPrice = product.getPrice();
+
+            if (cartItem.getSkuId() != null) {
+                ProductSku sku = productMapper.getSkuByIdAndProductId(cartItem.getSkuId(), cartItem.getProductId());
+                if (sku == null) {
+                    throw new BusinessException("SKU_NOT_FOUND", "商品规格不存在或不属于该商品: " + cartItem.getSkuId());
+                }
+                if (productMapper.decreaseSkuStock(cartItem.getSkuId(), cartItem.getProductId(), cartItem.getQuantity()) <= 0) {
+                    throw new BusinessException("INSUFFICIENT_STOCK", "商品规格库存不足: " + cartItem.getSkuId());
+                }
+                productMapper.syncProductStockFromSkus(cartItem.getProductId());
+                unitPrice = sku.getPrice();
+            } else {
+                List<ProductSku> skus = productMapper.getSkusByProductId(cartItem.getProductId());
+                if (skus != null && !skus.isEmpty()) {
+                    throw new BusinessException("SKU_REQUIRED", "请选择商品规格: " + cartItem.getProductId());
+                }
+                if (productMapper.decreaseProductStock(cartItem.getProductId(), cartItem.getQuantity()) <= 0) {
+                    throw new BusinessException("INSUFFICIENT_STOCK", "商品库存不足: " + cartItem.getProductId());
+                }
+            }
+
+            BigDecimal itemTotal = unitPrice.multiply(new BigDecimal(cartItem.getQuantity()));
             totalAmount = totalAmount.add(itemTotal);
             
             OrderItem orderItem = new OrderItem();
             orderItem.setProductId(product.getId());
+            orderItem.setSkuId(cartItem.getSkuId());
             orderItem.setProductName(product.getName());
-            orderItem.setPrice(product.getPrice());
+            orderItem.setPrice(unitPrice);
             orderItem.setQuantity(cartItem.getQuantity());
             orderItem.setTotalAmount(itemTotal);
+            orderItem.setProductImage("/product_" + product.getId() + ".jpg"); // 设置商品图片
             orderItems.add(orderItem);
         }
         
@@ -139,6 +165,26 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean updateOrderStatus(Long id, Integer status) {
-        return orderMapper.updateStatus(id, status) > 0;
+        Order order = orderMapper.getById(id);
+        if (order == null) return false;
+        
+        // 如果已经是目标状态，则不需要重复操作
+        if (order.getStatus().equals(status)) return true;
+
+        boolean success = orderMapper.updateStatus(id, status) > 0;
+        
+        // 如果状态更新为已支付 (1)，则增加商品销量
+        if (success && status == 1) {
+            List<OrderItem> items = orderItemMapper.getListByOrderId(id);
+            for (OrderItem item : items) {
+                Product product = productMapper.getById(item.getProductId());
+                if (product != null) {
+                    product.setSold((product.getSold() != null ? product.getSold() : 0) + item.getQuantity());
+                    productMapper.update(product);
+                }
+            }
+        }
+        
+        return success;
     }
 }

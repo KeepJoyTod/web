@@ -17,6 +17,9 @@ public class User {
     private String account;
     private String password;
     private String nickname;
-    private LocalDateTime createTime;
-    private LocalDateTime updateTime;
+    private String avatar;
+    private String role;
+    private Integer status;
+    private java.util.Date createTime;
+    private java.util.Date updateTime;
 }

@@ -19,9 +19,17 @@ public class Product {
     private String name;
     private String description;
     private String tags;
+    private BigDecimal rating; // 评分
+    private Integer sold;      // 已售数量
+    private String activityLabel; // 活动标签
+    private BigDecimal originalPrice; // 原价
     private BigDecimal price; // 基础展示价格
     private Integer stock;    // 基础库存
     private Integer status;   // 状态 (0-下架, 1-上架)
-    private LocalDateTime createTime;
-    private LocalDateTime updateTime;
+    private java.util.Date createTime;
+    private java.util.Date updateTime;
+
+    // 关联字段
+    private java.util.List<ProductMedia> mediaList;
+    private java.util.List<ProductSku> skuList;
 }
