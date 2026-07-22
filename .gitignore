@@ -1,98 +1,116 @@
-# OS / editor
+# OS and filesystem metadata
 .DS_Store
+._*
 Thumbs.db
-*.swp
-*.swo
-*~
-.vscode/
-.vscode*
+Desktop.ini
+
+# Editors and IDEs
+**/.vscode/*
+!**/.vscode/extensions.json
 .idea/
-.idea*
-.codex/
-.codex*
 *.iml
 *.iws
 *.ipr
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*~
 .settings/
 .classpath
 .project
 .factorypath
 
-# Claude / local tools
-.claude/
-.claude*
-.trae/
-.trae*
-skills/**/__pycache__/
-skills/**/.DS_Store
-skills/**/._.DS_Store
-skills/**/.~*
+# Local AI tools
+/.codex/
+/.claude/
+/.trae/
+/.headroom/
+/.cursor/
+/.agents/
+/skills/
 
-# Logs / temp
+# Logs and temporary files
 *.log
+*.log.*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 logs/
 .pids/
+*.pid
+*.pid.lock
 tmp/
 temp/
 *.tmp
+*.bak
+*.orig
+*.rej
 
-# Java / Maven
-back/target/
-**/target/
+# Java and Maven
+target/
 *.class
 hs_err_pid*
 replay_pid*
+.attach_pid*
 
-# Node / frontend
+# Node and frontend
 node_modules/
-frontend-admin/node_modules/
-**/node_modules/
+.npm/
+.pnpm-store/
 .vite/
-**/.vite/
+*.local
 dist/
 dist-ssr/
-*.local
-**/dist/
-**/dist-ssr/
-**/coverage/
-**/test-results/
-**/playwright-report/
-**/allure-results/
-**/allure-report/
-**/.cache/
+coverage/
+test-results/
+playwright-report/
+blob-report/
+allure-results/
+allure-report/
+allure_results/
+allure_report/
+.cache/
+.turbo/
+.parcel-cache/
 *.tsbuildinfo
-**/.env
-**/.env.local
-**/.env.*.local
-**/*.local
+vite.config.*.timestamp-*
 
-# Python test artifacts
-api_testcases/pytest/__pycache__/
-api_testcases/pytest/.pytest_cache/
-api_testcases/pytest/pytest-report.html
-api_testcases/pytest/report.xml
-api_testcases/pytest/.coverage
-api_testcases/pytest/htmlcov/
-
-# Generated docs / reports
-docs/performance-test-records/
-docs/recovered-codex-conversations/
-k6/results/
-
-# Local data / volumes
-mysql-data/
-redis-data/
-
-# Misc local files
-新建 文本文档.txt
-# 忽略 Vite 依赖缓存目录
-**/.vite/deps/
-# 忽略所有 Vite 依赖缓存文件
-**/node_modules/.vite/deps/**
-# 启动脚本
-start_all.bat
-start_all.sh
-
-# 敏感配置文件
+# Environment files
 .env
-.env.local
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.venv/
+venv/
+*.egg-info/
+.coverage
+.coverage.*
+htmlcov/
+
+# Generated test and AI process output
+/docs/plans/
+/docs/performance-test-records/
+/docs/recovered-codex-conversations/
+/k6/results/
+
+# Local data and volumes
+/mysql-data/
+/redis-data/
+
+# Miscellaneous local files
+新建 文本文档.txt
+/start_all.bat
+/start_all.sh

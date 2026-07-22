@@ -465,7 +465,7 @@
 
 
 
-- 完整接口契约文档位置：[api-contract.md](file:///d:/Java/class/projectKu/web/docs/api-contract.md)
+- 完整接口契约文档位置：[前后端接口契约](<./api-contract(前后端接口契约).md>)
 - 公共约定
   - Base URL：/v1；统一 Headers：Authorization、Idempotency-Key、X-Client-Version、X-Request-Id
   - 分页与排序：page、pageSize、sort、order；统一成功/错误响应结构与错误码

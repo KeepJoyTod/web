@@ -105,7 +105,7 @@
 - 数据一致性：明确事务边界、最终一致性模型与定期巡检任务
 
 ## 16. 接口契约（完整引用）
-- 完整接口契约文档位置：[api-contract.md](file:///d:/Java/class/projectKu/web/docs/api-contract.md)
+- 完整接口契约文档位置：[前后端接口契约](<./api-contract(前后端接口契约).md>)
 - 公共约定
   - Base URL：/v1；统一 Headers：Authorization、Idempotency-Key、X-Client-Version、X-Request-Id
   - 统一错误码与响应结构；写接口要求幂等（Idempotency-Key），敏感动作二次校验，限流标准化

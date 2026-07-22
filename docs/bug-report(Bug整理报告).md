@@ -1,6 +1,6 @@
 # Bug 整理报告
 
-本文档按 `bug-report-writer` skill 的标准 Markdown 结构整理当前自动化测试过程中发现的缺陷。
+本文档使用统一的 Markdown 结构整理当前自动化测试过程中发现的缺陷。
 
 ## 当前结论
 

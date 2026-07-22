@@ -55,10 +55,10 @@ flowchart LR
 
 结合当前仓库已有资产，建议测试执行顺序如下：
 
-1. 先维护测试用例文档，例如 `docs/login-test-cases.md`、`docs/checkout-test-cases.md`。
+1. 先维护测试用例文档，例如 `docs/login-test-cases(登录测试用例).md`、`docs/checkout-test-cases(下单结算测试用例).md`。
 2. 再执行 `frontend/tests/*.spec.ts` 中的自动化冒烟、功能和主流程测试。
-3. 缺陷统一沉淀到 `docs/bug-report.md`。
-4. 功能稳定后再执行 `k6` 性能测试，并将结果记录到 `docs/performance-test-records/`。
+3. 缺陷统一沉淀到 `docs/bug-report(Bug整理报告).md`。
+4. 功能稳定后再执行 `k6` 性能测试，结果写入已忽略的本地目录 `k6/results/`，不提交运行日志和 summary 文件。
 5. 当性能不达标时，回到“分析 -> 调优 -> 回归 -> 复测”闭环。
 
 ## 4. 阶段通过标准
@@ -73,6 +73,6 @@ flowchart LR
 
 ## 5. 相关文档
 
-- 阶段说明文档：`docs/test-stage-description.md`
-- 缺陷汇总：`docs/bug-report.md`
-- 压测记录：`docs/performance-test-records/2026-04-27-k6-baseline-process.md`
+- 阶段说明文档：`docs/test-stage-description(测试阶段说明).md`
+- 缺陷汇总：`docs/bug-report(Bug整理报告).md`
+- K6 使用说明：`k6/README.md`

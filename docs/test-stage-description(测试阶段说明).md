@@ -143,8 +143,16 @@
 本项目已有压测资产：
 
 - `k6/api-load.js`
-- `scripts/run-k6-and-record.ps1`
-- `docs/performance-test-records/`
+- `k6/checkout-smoke.js`
+- `k6/README.md`
+
+示例命令：
+
+```powershell
+k6 run -e BASE_URL=http://127.0.0.1:8080/api --summary-export k6/results/local-summary.json k6/api-load.js
+```
+
+`k6/results/` 仅保存本机运行产物，已被 Git 忽略。
 
 重点说明：
 
