@@ -1,432 +1,520 @@
-function Load-EnvFile {
-  param([string]$Path)
-  if (-not (Test-Path $Path)) { return }
-  Get-Content $Path | ForEach-Object {
-    if ($_ -match '^([^=]+)=(.+)$' -and $_ -notmatch '^#') {
-      $key = $matches[1].Trim()
-      $value = $matches[2].Trim()
-      if (-not (Test-Path "env:\$key")) {
-        [Environment]::SetEnvironmentVariable($key, $value, "Process")
-      }
-    }
-  }
-}
-
-Load-EnvFile ".env"
-
+[CmdletBinding()]
 param(
   [ValidateSet("dev", "prod")]
-  [string]$Mode = (if ($env:MODE) { $env:MODE } else { "dev" }),
-  [switch]$NoInstall,
-  [switch]$SkipDb,
+  [string]$Mode,
+  [Alias("SkipDb")]
+  [switch]$SkipInfrastructure,
   [switch]$InitDb,
   [switch]$SkipBuild,
   [switch]$DryRun,
   [switch]$OpenWindow,
-  [string]$DbName = (if ($env:DB_NAME) { $env:DB_NAME } else { "web" }),
-  [string]$DbUser = (if ($env:DB_USER) { $env:DB_USER } else { "root" }),
-  [string]$DbPassword = (if ($env:DB_PASSWORD) { $env:DB_PASSWORD } else { "" }),
-  [string]$MysqlContainer = (if ($env:MYSQL_CONTAINER) { $env:MYSQL_CONTAINER } else { "projectku-mysql" })
+  [switch]$WithMonitoring,
+  [switch]$NoInstall,
+  [string]$DbName,
+  [string]$DbUser,
+  [string]$DbPassword
 )
 
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
 
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$BackendDir = Join-Path $Root "back"
 $FrontendDir = Join-Path $Root "frontend"
 $AdminDir = Join-Path $Root "frontend-admin"
-$BackendDir = if (Test-Path (Join-Path $Root "back")) { Join-Path $Root "back" } else { Join-Path $Root "backend" }
 $LogsDir = Join-Path $Root "logs"
 $PidsDir = Join-Path $Root ".pids"
-$InstalledNodeProjects = @{}
+$ScriptParameters = $PSBoundParameters
 
-New-Item -ItemType Directory -Force -Path $LogsDir | Out-Null
-New-Item -ItemType Directory -Force -Path $PidsDir | Out-Null
+function Import-DotEnv([string]$Path) {
+  if (-not (Test-Path -LiteralPath $Path)) { return }
+
+  foreach ($line in Get-Content -LiteralPath $Path) {
+    if ($line -match '^\s*#' -or [string]::IsNullOrWhiteSpace($line)) { continue }
+    if ($line -notmatch '^\s*([A-Za-z_][A-Za-z0-9_]*)=(.*)$') { continue }
+
+    $name = $Matches[1]
+    $value = $Matches[2].Trim()
+    if (($value.StartsWith('"') -and $value.EndsWith('"')) -or
+        ($value.StartsWith("'") -and $value.EndsWith("'"))) {
+      $value = $value.Substring(1, $value.Length - 2)
+    }
+    if (-not (Test-Path "env:$name")) {
+      Set-Item -Path "env:$name" -Value $value
+    }
+  }
+}
+
+function Get-Setting([string]$ParameterName, [string]$Value, [string]$EnvironmentName, [string]$DefaultValue) {
+  if ($ParameterName -and $ScriptParameters.ContainsKey($ParameterName)) { return $Value }
+  $environmentValue = [Environment]::GetEnvironmentVariable($EnvironmentName, "Process")
+  if (-not [string]::IsNullOrWhiteSpace($environmentValue)) { return $environmentValue }
+  return $DefaultValue
+}
+
+Import-DotEnv (Join-Path $Root ".env")
+
+$Mode = Get-Setting "Mode" $Mode "MODE" "dev"
+$DbName = Get-Setting "DbName" $DbName "DB_NAME" "web"
+$DbUser = Get-Setting "DbUser" $DbUser "DB_USER" "root"
+$DbPassword = Get-Setting "DbPassword" $DbPassword "DB_PASSWORD" "123456"
+$BackendPort = Get-Setting "" "" "BACKEND_PORT" "8080"
+$FrontendPort = Get-Setting "" "" "FRONTEND_PORT" "5173"
+$AdminPort = Get-Setting "" "" "ADMIN_PORT" "5174"
+
+if ($Mode -notin @("dev", "prod")) { throw "MODE must be dev or prod." }
+if ($DbName -notmatch '^[A-Za-z0-9_]+$') { throw "DB_NAME may contain only letters, numbers, and underscores." }
+if ($DbUser -notmatch '^[A-Za-z0-9_]+$') { throw "DB_USER may contain only letters, numbers, and underscores." }
+if (-not $SkipInfrastructure -and $DbUser -ne "root") {
+  throw "The Compose workflow requires DB_USER=root. Use -SkipInfrastructure for an existing non-root MySQL account."
+}
+
+$env:MODE = $Mode
+$env:DB_NAME = $DbName
+$env:DB_USER = $DbUser
+$env:DB_PASSWORD = $DbPassword
+$env:BACKEND_PORT = $BackendPort
+$env:FRONTEND_PORT = $FrontendPort
+$env:ADMIN_PORT = $AdminPort
+
+if (-not $DryRun) {
+  New-Item -ItemType Directory -Force -Path $LogsDir, $PidsDir | Out-Null
+}
 
 function Write-Step([string]$Message) {
   Write-Host ""
-  Write-Host $Message
+  Write-Host "==> $Message"
 }
 
-function Command-Exists([string]$Name) {
-  return [bool](Get-Command $Name -ErrorAction SilentlyContinue)
-}
-
-function Invoke-External([string]$FilePath, [string[]]$CommandArgs, [string]$WorkingDirectory = $Root) {
-  if ($DryRun) {
-    Write-Host ("[dry-run] " + $FilePath + " " + ($CommandArgs -join " "))
-    return
-  }
-  $p = Start-Process -FilePath $FilePath -ArgumentList $CommandArgs -WorkingDirectory $WorkingDirectory -NoNewWindow -Wait -PassThru
-  if ($p.ExitCode -ne 0) {
-    throw ("Command failed: " + $FilePath + " " + ($CommandArgs -join " "))
-  }
-}
-
-function Get-JavaMajorVersion {
-  if (-not (Command-Exists "java")) { return $null }
-  $out = & cmd /c "java -version 2>&1"
-  $line = ($out | Select-Object -First 1)
-  if ($line -match '"(?<ver>\d+)(\.\d+)?') {
-    return [int]$Matches["ver"]
+function Resolve-Command([string[]]$Names) {
+  foreach ($name in $Names) {
+    $command = Get-Command $name -ErrorAction SilentlyContinue
+    if ($command) { return $command.Source }
   }
   return $null
 }
 
-function Ensure-Winget {
-  if (Command-Exists "winget") { return }
-  throw "winget not found. Please install App Installer from Microsoft Store (or use -NoInstall)."
-}
-
-function Ensure-Tool([string]$CommandName, [string]$WingetId) {
-  if (Command-Exists $CommandName) { return }
-  if ($NoInstall) { throw ("Missing dependency: " + $CommandName) }
-
-  Ensure-Winget
-  Write-Step ("Installing " + $CommandName + " ...")
-  Invoke-External "winget" @("install", "--id", $WingetId, "-e", "--accept-package-agreements", "--accept-source-agreements") $Root
-  if (-not (Command-Exists $CommandName)) {
-    throw ("Install finished but " + $CommandName + " is still not found. Restart your terminal and re-run.")
-  }
-}
-
-function Get-PowerShellExe {
-  if (Command-Exists "pwsh") { return "pwsh" }
-  if (Command-Exists "powershell.exe") { return "powershell.exe" }
-  if (Command-Exists "powershell") { return "powershell" }
-  throw "Neither pwsh nor powershell.exe found."
-}
-
-function Escape-PwshSingleQuoted([string]$Value) {
-  return ($Value -replace "'", "''")
-}
-
-function Ensure-Java17 {
-  $major = Get-JavaMajorVersion
-  if ($major -eq 17) { return }
-  if ($NoInstall) { throw "Missing dependency: JDK 17" }
-  Ensure-Winget
-  Write-Step "Installing JDK 17 (Temurin) ..."
-  Invoke-External "winget" @("install", "--id", "EclipseAdoptium.Temurin.17.JDK", "-e", "--accept-package-agreements", "--accept-source-agreements") $Root
-  $major2 = Get-JavaMajorVersion
-  if ($major2 -ne 17) {
-    throw "JDK 17 is required. Restart your terminal (or log out/in) and re-run."
-  }
-}
-
-function Ensure-Node18Plus {
-  if (-not (Command-Exists "node")) {
-    if ($NoInstall) { throw "Missing dependency: Node.js" }
-    Ensure-Winget
-    Write-Step "Installing Node.js (LTS) ..."
-    Invoke-External "winget" @("install", "--id", "OpenJS.NodeJS.LTS", "-e", "--accept-package-agreements", "--accept-source-agreements") $Root
-  }
-
-  $v = (& node -v 2>$null) -replace "^v", ""
-  $major = ($v -split "\.")[0]
-  if ([int]$major -lt 18) {
-    throw ("Node.js 18+ is required. Current: v" + $v)
-  }
-}
-
-function Ensure-Docker {
-  if (Command-Exists "docker") { return }
-  if ($NoInstall) { throw "Missing dependency: Docker Desktop (docker)" }
-  Ensure-Winget
-  Write-Step "Installing Docker Desktop ..."
-  Invoke-External "winget" @("install", "--id", "Docker.DockerDesktop", "-e", "--accept-package-agreements", "--accept-source-agreements") $Root
-  if (-not (Command-Exists "docker")) {
-    throw "Docker is required. Open Docker Desktop and ensure 'docker' is available in PATH, then re-run."
-  }
-}
-
-function Start-Compose {
-  if ($SkipDb) { return }
-  Ensure-Docker
-
-  Write-Step "Starting infrastructure services (docker compose) ..."
-  if ($DryRun) {
-    Write-Host ("[dry-run] (cd `"$Root`" && docker compose up -d) or docker-compose up -d")
-    return
-  }
-
-  Push-Location $Root
+function Test-JdkHome([string]$Path) {
+  if ([string]::IsNullOrWhiteSpace($Path)) { return $false }
   try {
-    & docker compose up -d | Out-Host
-    if ($LASTEXITCODE -ne 0) { throw "docker compose up failed" }
+    return [System.IO.File]::Exists([System.IO.Path]::Combine($Path, "bin", "javac.exe"))
   } catch {
-    & docker-compose up -d | Out-Host
-    if ($LASTEXITCODE -ne 0) { throw "docker-compose up failed" }
-  } finally {
-    Pop-Location
+    return $false
   }
 }
 
-function Wait-For-MySQL {
-  if ($SkipDb) { return }
-  if ($DryRun) { return }
-
-  Write-Step "Waiting for MySQL to be ready ..."
-  $max = 60
-  for ($i = 0; $i -lt $max; $i++) {
-    & docker exec $MysqlContainer mysqladmin ping "-u$DbUser" "-p$DbPassword" "--silent" 2>$null | Out-Null
-    if ($LASTEXITCODE -eq 0) { return }
-    Start-Sleep -Seconds 2
-  }
-  throw "MySQL is not ready. Check docker logs: docker logs $MysqlContainer"
+function Get-LockHash([string]$Directory) {
+  return (Get-FileHash -LiteralPath (Join-Path $Directory "package-lock.json") -Algorithm SHA256).Hash.ToLowerInvariant()
 }
 
-function Get-SqlFiles([string]$SqlDir) {
-  $preferred = Join-Path $SqlDir "init_db.sql"
-  if (Test-Path $preferred) {
-    return @($preferred)
+function Test-ManagedProcessIdentity([string]$Name) {
+  $metadataFile = Join-Path $PidsDir "$Name.pid.json"
+  if (-not (Test-Path -LiteralPath $metadataFile)) { return $false }
+  try {
+    $metadata = Get-Content -LiteralPath $metadataFile -Raw | ConvertFrom-Json
+    if ($metadata.schema -ne 2 -or $metadata.name -ne $Name -or $metadata.projectRoot -ne $Root -or "$($metadata.pid)" -notmatch '^\d+$') { return $false }
+    $process = Get-Process -Id ([int]$metadata.pid) -ErrorAction Stop
+    $actualStart = $process.StartTime.ToUniversalTime()
+    $expectedStart = [DateTimeOffset]::Parse($metadata.startedUtc).UtcDateTime
+    if ([Math]::Abs(($actualStart - $expectedStart).TotalSeconds) -gt 2) { return $false }
+    $nativeProcess = Get-CimInstance Win32_Process -Filter "ProcessId = $($metadata.pid)"
+    if (-not $nativeProcess) { return $false }
+    return $nativeProcess.ExecutablePath -eq $metadata.executable -and $nativeProcess.CommandLine -eq $metadata.commandLine
+  } catch {
+    return $false
   }
+}
 
-  $orderedNames = @(
-    "schema_v1.sql",
-    "schema_v2_address.sql",
-    "schema_v3_payment.sql",
-    "schema_v4_marketing_aftersales.sql",
-    "schema_v5_products_tags.sql",
-    "seed_demo.sql",
-    "seed_products_categories_1_8.sql"
-  )
+function Test-ProcessDescendsFrom([int]$ProcessId, [int]$AncestorProcessId) {
+  $visited = @{}
+  while ($ProcessId -gt 0 -and -not $visited.ContainsKey($ProcessId)) {
+    if ($ProcessId -eq $AncestorProcessId) { return $true }
+    $visited[$ProcessId] = $true
+    $nativeProcess = Get-CimInstance Win32_Process -Filter "ProcessId = $ProcessId" -ErrorAction SilentlyContinue
+    if (-not $nativeProcess) { return $false }
+    $ProcessId = [int]$nativeProcess.ParentProcessId
+  }
+  return $false
+}
 
-  $orderedFiles = New-Object System.Collections.Generic.List[string]
-  foreach ($name in $orderedNames) {
-    $candidate = Join-Path $SqlDir $name
-    if (Test-Path $candidate) {
-      $orderedFiles.Add($candidate)
+function Get-PortListeners([int]$Port) {
+  return @(Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction SilentlyContinue)
+}
+
+function Test-ManagedServiceIdentity([string]$Name, [int]$Port) {
+  if (-not (Test-ManagedProcessIdentity $Name)) { return $false }
+  try {
+    $metadataFile = Join-Path $PidsDir "$Name.pid.json"
+    $metadata = Get-Content -LiteralPath $metadataFile -Raw | ConvertFrom-Json
+    foreach ($listener in (Get-PortListeners $Port)) {
+      if (Test-ProcessDescendsFrom ([int]$listener.OwningProcess) ([int]$metadata.pid)) { return $true }
     }
+  } catch {
+    return $false
   }
-  if ($orderedFiles.Count -gt 0) {
-    return $orderedFiles.ToArray()
-  }
-
-  $allSqls = Get-ChildItem -Path $SqlDir -Filter "*.sql" -File | Sort-Object Name | Select-Object -ExpandProperty FullName
-  if ($allSqls) {
-    return @($allSqls)
-  }
-
-  throw ("No SQL files found in: " + $SqlDir)
+  return $false
 }
 
-function Import-DbSchema {
-  if ($SkipDb -or (-not $InitDb)) { return }
-  Ensure-Docker
-  Wait-For-MySQL
+function ConvertTo-NativeArgument([AllowEmptyString()][string]$Argument) {
+  if ($Argument.Length -gt 0 -and $Argument -notmatch '[\s"]') { return $Argument }
 
-  Write-Step "Importing database schema and seed data ..."
-  $sqlDir = Join-Path $Root "back/sql"
-  if (-not (Test-Path $sqlDir)) {
-    $fallback = Join-Path $BackendDir "sql"
-    if (Test-Path $fallback) { $sqlDir = $fallback }
-  }
-  if (-not (Test-Path $sqlDir)) {
-    throw ("SQL directory not found. Expected: " + (Join-Path $Root "back/sql") + " or " + (Join-Path $BackendDir "sql"))
-  }
-
-  $sqlFiles = Get-SqlFiles -SqlDir $sqlDir
-
-  if ($DryRun) {
-    Write-Host ("[dry-run] ensure database exists: " + $DbName)
-  } else {
-    & docker exec $MysqlContainer mysql "-u$DbUser" "-p$DbPassword" -e ("CREATE DATABASE IF NOT EXISTS ``" + $DbName + "`` DEFAULT CHARSET utf8mb4;") | Out-Null
-    if ($LASTEXITCODE -ne 0) { throw ("Failed to create database: " + $DbName) }
-  }
-
-  foreach ($file in $sqlFiles) {
-    if ($DryRun) {
-      Write-Host ("[dry-run] import " + (Split-Path $sqlDir -Leaf) + "/" + (Split-Path $file -Leaf))
+  $builder = [System.Text.StringBuilder]::new()
+  [void]$builder.Append('"')
+  $backslashes = 0
+  foreach ($character in $Argument.ToCharArray()) {
+    if ($character -eq '\') {
+      $backslashes++
       continue
     }
-
-    $sql = Get-Content $file -Raw
-    $bytes = [System.Text.Encoding]::UTF8.GetBytes($sql)
-    $ms = New-Object System.IO.MemoryStream(,$bytes)
-    $psi = New-Object System.Diagnostics.ProcessStartInfo
-    $psi.FileName = "docker"
-    $psi.ArgumentList = @("exec", "-i", $MysqlContainer, "mysql", "-u$DbUser", "-p$DbPassword", $DbName)
-    $psi.RedirectStandardInput = $true
-    $psi.RedirectStandardError = $true
-    $psi.RedirectStandardOutput = $true
-    $psi.UseShellExecute = $false
-    $p = New-Object System.Diagnostics.Process
-    $p.StartInfo = $psi
-    [void]$p.Start()
-    $ms.CopyTo($p.StandardInput.BaseStream)
-    $p.StandardInput.Close()
-    $stdout = $p.StandardOutput.ReadToEnd()
-    $stderr = $p.StandardError.ReadToEnd()
-    $p.WaitForExit()
-    if ($p.ExitCode -ne 0) {
-      throw ("DB import failed: " + (Split-Path $file -Leaf) + "`n" + $stderr + $stdout)
+    if ($character -eq '"') {
+      [void]$builder.Append(('\' * (($backslashes * 2) + 1)))
+      [void]$builder.Append('"')
+      $backslashes = 0
+      continue
     }
+    if ($backslashes -gt 0) {
+      [void]$builder.Append(('\' * $backslashes))
+      $backslashes = 0
+    }
+    [void]$builder.Append([string]$character)
+  }
+  if ($backslashes -gt 0) { [void]$builder.Append(('\' * ($backslashes * 2))) }
+  [void]$builder.Append('"')
+  return $builder.ToString()
+}
+
+function Set-NativeProcessArguments([System.Diagnostics.ProcessStartInfo]$ProcessInfo, [string[]]$Arguments) {
+  if ($null -ne $ProcessInfo.PSObject.Properties["ArgumentList"]) {
+    foreach ($argument in $Arguments) { $ProcessInfo.ArgumentList.Add($argument) }
+  } else {
+    $ProcessInfo.Arguments = (($Arguments | ForEach-Object { ConvertTo-NativeArgument $_ }) -join " ")
   }
 }
 
-function Install-NodeProjectDeps([string]$ProjectDir, [string]$Label) {
-  if (-not (Test-Path (Join-Path $ProjectDir "package.json"))) { return }
-  if ($InstalledNodeProjects.ContainsKey($ProjectDir)) { return }
-
-  Ensure-Node18Plus
-  Write-Step ("Installing " + $Label + " dependencies ...")
-
-  $command = if (Test-Path (Join-Path $ProjectDir "package-lock.json")) { "ci" } else { "install" }
+function Invoke-Checked([string]$FilePath, [string[]]$Arguments, [string]$WorkingDirectory = $Root) {
   if ($DryRun) {
-    Write-Host ("[dry-run] (cd `"$ProjectDir`" && npm " + $command + ")")
-    $InstalledNodeProjects[$ProjectDir] = $true
+    Write-Host ("[dry-run] {0} {1}" -f $FilePath, ($Arguments -join " "))
     return
   }
 
-  Push-Location $ProjectDir
+  Push-Location $WorkingDirectory
   try {
-    & npm $command | Out-Host
-    if ($LASTEXITCODE -ne 0) { throw ("npm " + $command + " failed") }
+    $previousErrorAction = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    & $FilePath @Arguments | Out-Host
+    $exitCode = $LASTEXITCODE
+    $ErrorActionPreference = $previousErrorAction
+    if ($exitCode -ne 0) {
+      throw ("Command failed ({0}): {1} {2}" -f $exitCode, $FilePath, ($Arguments -join " "))
+    }
   } finally {
+    $ErrorActionPreference = "Stop"
     Pop-Location
   }
-
-  $InstalledNodeProjects[$ProjectDir] = $true
 }
 
-function Ensure-FrontendDeps {
-  Install-NodeProjectDeps -ProjectDir $FrontendDir -Label "frontend"
+function Assert-Java17 {
+  $java = Resolve-Command @("java.exe", "java")
+  if (-not $java) { throw "JDK 17 is required, but java was not found in PATH." }
+  $previousErrorAction = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
+  $versionLine = (& $java -version 2>&1 | Select-Object -First 1).ToString()
+  $ErrorActionPreference = $previousErrorAction
+  if ($versionLine -notmatch '"17(?:\.|\")') {
+    throw "JDK 17 is required. Current: $versionLine"
+  }
+
+  if (-not (Test-JdkHome $env:JAVA_HOME)) {
+    $ErrorActionPreference = "Continue"
+    $javaHomeLine = & $java -XshowSettings:properties -version 2>&1 | Where-Object { $_ -match '^\s*java\.home\s*=' } | Select-Object -First 1
+    $ErrorActionPreference = $previousErrorAction
+    if ($javaHomeLine -and $javaHomeLine -match '^\s*java\.home\s*=\s*(.+?)\s*$') {
+      $detectedJavaHome = $Matches[1]
+      if (Test-JdkHome $detectedJavaHome) {
+        $env:JAVA_HOME = $detectedJavaHome
+        Write-Host "Using JAVA_HOME=$detectedJavaHome for this deployment process."
+      }
+    }
+  }
+  if (-not (Test-JdkHome $env:JAVA_HOME)) {
+    throw "A JDK 17 installation was found, but JAVA_HOME could not be resolved to a JDK root."
+  }
 }
 
-function Ensure-AdminDeps {
-  Install-NodeProjectDeps -ProjectDir $AdminDir -Label "frontend-admin"
+function Assert-NodeVersion {
+  $node = Resolve-Command @("node.exe", "node")
+  if (-not $node) { throw "Node.js ^20.19.0 or >=22.12.0 is required." }
+  $version = (& $node --version).TrimStart("v")
+  $parts = $version.Split(".")
+  $major = [int]$parts[0]
+  $minor = [int]$parts[1]
+  $supported = ($major -eq 20 -and $minor -ge 19) -or ($major -eq 22 -and $minor -ge 12) -or ($major -gt 22)
+  if (-not $supported) { throw "Node.js ^20.19.0 or >=22.12.0 is required. Current: v$version" }
 }
 
-function Ensure-BackendDeps {
-  if (-not (Test-Path (Join-Path $BackendDir "pom.xml"))) { return }
-  Ensure-Java17
-  Ensure-Tool "mvn" "Apache.Maven"
+function Get-MavenCommand {
+  $wrapper = Join-Path $BackendDir "mvnw.cmd"
+  if (Test-Path -LiteralPath $wrapper) { return $wrapper }
+  $maven = Resolve-Command @("mvn.cmd", "mvn")
+  if ($maven) { return $maven }
+  throw "Maven was not found. Restore back/mvnw.cmd or install Maven 3.8+."
 }
 
-function Build-IfNeeded {
+function Get-NpmCommand {
+  $npm = Resolve-Command @("npm.cmd", "npm")
+  if (-not $npm) { throw "npm was not found in PATH." }
+  return $npm
+}
+
+function Start-Infrastructure {
+  if ($SkipInfrastructure) { return }
+  $docker = Resolve-Command @("docker.exe", "docker")
+  if (-not $docker) { throw "Docker is required unless -SkipInfrastructure is used." }
+
+  Write-Step "Starting MySQL and Redis"
+  $arguments = @("compose")
+  if ($WithMonitoring) { $arguments += @("--profile", "monitoring") }
+  $arguments += @("up", "-d", "mysql", "redis")
+  if ($WithMonitoring) { $arguments = @("compose", "--profile", "monitoring", "up", "-d") }
+  Invoke-Checked $docker $arguments $Root
+}
+
+function Wait-ForMySql {
+  if ($SkipInfrastructure -or $DryRun) { return }
+  $docker = Resolve-Command @("docker.exe", "docker")
+  Write-Step "Waiting for MySQL"
+  for ($attempt = 1; $attempt -le 60; $attempt++) {
+    Push-Location $Root
+    try {
+      & $docker compose exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysqladmin ping -uroot --silent' 2>$null | Out-Null
+      if ($LASTEXITCODE -eq 0) { return }
+    } finally {
+      Pop-Location
+    }
+    Start-Sleep -Seconds 2
+  }
+  throw "MySQL did not become ready. Run 'docker compose logs mysql' from the repository root."
+}
+
+function Initialize-Database {
+  if (-not $InitDb) { return }
+  if ($SkipInfrastructure) {
+    throw "-InitDb requires Compose MySQL. For local MySQL, run scripts/init-local-db.ps1 separately."
+  }
+  if ($DryRun) {
+    Write-Host "[dry-run] create database $DbName if missing, verify it has zero tables, then import back/sql/init_db.sql"
+    return
+  }
+
+  Wait-ForMySql
+  $docker = Resolve-Command @("docker.exe", "docker")
+  $createCommand = 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -uroot -e "CREATE DATABASE IF NOT EXISTS {0} DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"' -f $DbName
+  Invoke-Checked $docker @("compose", "exec", "-T", "mysql", "sh", "-c", $createCommand) $Root
+
+  $dbNameHex = [BitConverter]::ToString([Text.Encoding]::UTF8.GetBytes($DbName)).Replace("-", "")
+  $countCommand = 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -uroot --batch --skip-column-names -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=CONVERT(0x{0} USING utf8mb4);"' -f $dbNameHex
+  Push-Location $Root
+  try {
+    $previousErrorAction = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    $tableCountOutput = & $docker compose exec -T mysql sh -c $countCommand 2>&1
+    $exitCode = $LASTEXITCODE
+    $ErrorActionPreference = $previousErrorAction
+  } finally {
+    $ErrorActionPreference = "Stop"
+    Pop-Location
+  }
+  if ($exitCode -ne 0) { throw "Unable to inspect database $DbName. $($tableCountOutput -join [Environment]::NewLine)" }
+  $tableCount = ($tableCountOutput | Select-Object -Last 1).ToString().Trim()
+  if ($tableCount -notmatch '^\d+$') { throw "Unable to parse table count for database $DbName." }
+  if ([int]$tableCount -gt 0) {
+    throw "Database $DbName is not empty. Omit -InitDb to preserve existing data."
+  }
+
+  Write-Step "Importing database schema and seed data"
+  $sqlPath = Join-Path $BackendDir "sql/init_db.sql"
+  $processInfo = [System.Diagnostics.ProcessStartInfo]::new()
+  $processInfo.FileName = $docker
+  $processInfo.WorkingDirectory = $Root
+  $importCommand = 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -uroot --default-character-set=utf8mb4 {0}' -f $DbName
+  Set-NativeProcessArguments $processInfo @("compose", "exec", "-T", "mysql", "sh", "-c", $importCommand)
+  $processInfo.RedirectStandardInput = $true
+  $processInfo.RedirectStandardError = $true
+  $processInfo.UseShellExecute = $false
+  $process = [System.Diagnostics.Process]::Start($processInfo)
+  $errorTask = $process.StandardError.ReadToEndAsync()
+  $sqlStream = [System.IO.File]::OpenRead($sqlPath)
+  try {
+    $sqlStream.CopyTo($process.StandardInput.BaseStream)
+  } finally {
+    $sqlStream.Dispose()
+    $process.StandardInput.Close()
+  }
+  $process.WaitForExit()
+  $errorOutput = $errorTask.Result
+  if ($process.ExitCode -ne 0) {
+    throw "Database import failed. Database '$DbName' may now be partially initialized. Keep the existing data for inspection and set DB_NAME to a new unused database before retrying; no cleanup was performed. MySQL error: $errorOutput"
+  }
+}
+
+function Install-NodeDependencies([string]$Directory, [string]$Name, [int]$Port, [string]$Url, [string]$Marker) {
+  $lockHash = Get-LockHash $Directory
+  $lockMarker = Join-Path $Directory "node_modules/.projectku-package-lock.sha256"
+  if (Test-Frontend $Url $Marker) {
+    $recordedHash = if (Test-Path -LiteralPath $lockMarker) { (Get-Content -LiteralPath $lockMarker -Raw).Trim() } else { "" }
+    if ((Test-ManagedServiceIdentity $Name $Port) -and $recordedHash -eq $lockHash) {
+      Write-Host "$(Split-Path $Directory -Leaf) is already running with the current lockfile; skipping npm ci."
+      return
+    }
+    throw "$(Split-Path $Directory -Leaf) is running without matching process/lockfile metadata. Stop it before deployment."
+  }
+  $npm = Get-NpmCommand
+  Write-Step "Synchronizing dependencies: $(Split-Path $Directory -Leaf)"
+  Invoke-Checked $npm @("ci") $Directory
+  if (-not $DryRun) { Set-Content -LiteralPath $lockMarker -Value $lockHash -Encoding ascii }
+}
+
+function Build-Projects {
+  Assert-Java17
+  Assert-NodeVersion
+  Install-NodeDependencies $FrontendDir "frontend" ([int]$FrontendPort) "http://127.0.0.1:$FrontendPort/" 'content="projectku-user"'
+  Install-NodeDependencies $AdminDir "admin" ([int]$AdminPort) "http://127.0.0.1:$AdminPort/" 'content="projectku-admin"'
   if ($SkipBuild) { return }
 
-  Ensure-BackendDeps
-  Ensure-FrontendDeps
-  Ensure-AdminDeps
+  $maven = Get-MavenCommand
+  Write-Step "Compiling backend"
+  Invoke-Checked $maven @("-DskipTests", "compile") $BackendDir
 
-  if ($DryRun) {
-    if (Test-Path (Join-Path $BackendDir "pom.xml")) {
-      Write-Step "Building backend (Maven) ..."
-      Write-Host ("[dry-run] (cd `"$BackendDir`" && mvn -DskipTests package)")
-    }
-    if ($Mode -eq "prod" -and (Test-Path (Join-Path $FrontendDir "package.json"))) {
-      Write-Step "Building frontend (Vite) ..."
-      Write-Host ("[dry-run] (cd `"$FrontendDir`" && npm run build)")
-    }
-    if ($Mode -eq "prod" -and (Test-Path (Join-Path $AdminDir "package.json"))) {
-      Write-Step "Building frontend-admin (Vite) ..."
-      Write-Host ("[dry-run] (cd `"$AdminDir`" && npm run build)")
-    }
-    return
-  }
+  Write-Step "Building user frontend"
+  Invoke-Checked (Get-NpmCommand) @("run", "build") $FrontendDir
 
-  if (Test-Path (Join-Path $BackendDir "pom.xml")) {
-    Write-Step "Building backend (Maven) ..."
-    Push-Location $BackendDir
-    try {
-      & mvn -DskipTests package | Out-Host
-      if ($LASTEXITCODE -ne 0) { throw "mvn package failed" }
-    } finally {
-      Pop-Location
-    }
-  }
+  Write-Step "Building admin frontend"
+  Invoke-Checked (Get-NpmCommand) @("run", "build") $AdminDir
+}
 
-  if ($Mode -eq "prod" -and (Test-Path (Join-Path $FrontendDir "package.json"))) {
-    Write-Step "Building frontend (Vite) ..."
-    Push-Location $FrontendDir
-    try {
-      & npm run build | Out-Host
-      if ($LASTEXITCODE -ne 0) { throw "npm run build failed" }
-    } finally {
-      Pop-Location
-    }
-  }
-
-  if ($Mode -eq "prod" -and (Test-Path (Join-Path $AdminDir "package.json"))) {
-    Write-Step "Building frontend-admin (Vite) ..."
-    Push-Location $AdminDir
-    try {
-      & npm run build | Out-Host
-      if ($LASTEXITCODE -ne 0) { throw "npm run build failed" }
-    } finally {
-      Pop-Location
-    }
+function Test-BackendHealth([string]$Url) {
+  try {
+    $health = Invoke-RestMethod -Uri $Url -TimeoutSec 3
+    return $health.status -eq "UP" -and $health.components.db.status -eq "UP" -and $health.components.redis.status -eq "UP"
+  } catch {
+    return $false
   }
 }
 
-function Start-ServiceProcess([string]$Name, [string]$WorkingDirectory, [string]$CommandLine) {
-  $log = Join-Path $LogsDir ($Name + ".log")
-  $pidfile = Join-Path $PidsDir ($Name + ".pid")
+function Test-Frontend([string]$Url, [string]$Marker) {
+  try {
+    $response = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 3
+    return $response.StatusCode -eq 200 -and $response.Content.Contains($Marker)
+  } catch {
+    return $false
+  }
+}
 
+function Start-ManagedProcess([string]$Name, [string]$FilePath, [string[]]$Arguments, [string]$WorkingDirectory) {
   if ($DryRun) {
-    Write-Host ("[dry-run] start " + $Name + ": " + $CommandLine)
+    Write-Host ("[dry-run] start {0}: {1} {2}" -f $Name, $FilePath, ($Arguments -join " "))
     return
   }
 
-  $psExe = Get-PowerShellExe
-  $escapedDir = Escape-PwshSingleQuoted $WorkingDirectory
-  $cmd = "Set-Location -LiteralPath '$escapedDir'; $CommandLine"
-
-  if ($OpenWindow) {
-    $p = Start-Process -FilePath $psExe -ArgumentList @("-NoExit", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $cmd) -WorkingDirectory $WorkingDirectory -PassThru
-  } else {
-    $p = Start-Process -FilePath $psExe -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $cmd) -WorkingDirectory $WorkingDirectory -RedirectStandardOutput $log -RedirectStandardError $log -PassThru
+  $start = @{
+    FilePath = $FilePath
+    ArgumentList = $Arguments
+    WorkingDirectory = $WorkingDirectory
+    PassThru = $true
   }
-  Set-Content -Path $pidfile -Value $p.Id -Encoding ASCII
-  Write-Host ("Started " + $Name + " (pid=" + $p.Id + "), logs: " + $log)
+  if (-not $OpenWindow) {
+    $start.RedirectStandardOutput = Join-Path $LogsDir "$Name.out.log"
+    $start.RedirectStandardError = Join-Path $LogsDir "$Name.err.log"
+    $start.WindowStyle = "Hidden"
+  }
+  $process = Start-Process @start
+  $process.Refresh()
+  $nativeProcess = Get-CimInstance Win32_Process -Filter "ProcessId = $($process.Id)"
+  if (-not $nativeProcess) { throw "Unable to capture process identity for $Name (PID $($process.Id))." }
+  $metadata = [ordered]@{
+    schema = 2
+    name = $Name
+    pid = $process.Id
+    startedUtc = $process.StartTime.ToUniversalTime().ToString("o")
+    projectRoot = $Root
+    executable = $nativeProcess.ExecutablePath
+    commandLine = $nativeProcess.CommandLine
+  }
+  $metadata | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $PidsDir "$Name.pid.json") -Encoding utf8
+  Remove-Item -LiteralPath (Join-Path $PidsDir "$Name.pid") -Force -ErrorAction SilentlyContinue
+  Write-Host "Started $Name (PID $($process.Id))."
 }
 
-function Start-App {
-  Write-Step "Starting services ..."
+function Wait-ForService([string]$Name, [string]$Url, [int]$TimeoutSeconds, [scriptblock]$Probe) {
+  if ($DryRun) { return }
+  $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+  while ((Get-Date) -lt $deadline) {
+    if (& $Probe) { Write-Host "$Name ready: $Url"; return }
+    Start-Sleep -Seconds 2
+  }
+  throw "$Name did not become ready: $Url. Check logs/$Name.err.log and logs/$Name.out.log."
+}
 
-  if (Test-Path (Join-Path $BackendDir "pom.xml")) {
-    Ensure-BackendDeps
-    if ($Mode -eq "dev") {
-      Start-ServiceProcess "backend" $BackendDir "mvn spring-boot:run"
-    } else {
-      $jar = Get-ChildItem -Path (Join-Path $BackendDir "target") -Filter "*.jar" -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-      if (-not $jar) { throw "Backend jar not found. Run with -SkipBuild:$false or build backend first." }
-      Start-ServiceProcess "backend" $BackendDir ("java -jar `"" + $jar.FullName + "`"")
+function Test-ServiceCanBeReused([string]$Name, [int]$Port, [string]$Url, [scriptblock]$Probe) {
+  if (& $Probe) {
+    if (Test-ManagedServiceIdentity $Name $Port) {
+      Write-Host "$Name already running from this repository: $Url"
+      return $true
     }
+    throw "$Name URL is healthy at $Url, but PID metadata cannot prove that its listener belongs to this repository. The port is occupied by a non-managed service."
   }
 
-  if (Test-Path (Join-Path $FrontendDir "package.json")) {
-    Ensure-FrontendDeps
-    if ($Mode -eq "dev") {
-      Start-ServiceProcess "frontend" $FrontendDir "npm run dev"
-    } else {
-      Start-ServiceProcess "frontend" $FrontendDir "npm run preview -- --host 0.0.0.0 --port 5173"
-    }
+  if (Test-ManagedProcessIdentity $Name) {
+    throw "$name has valid PID metadata for this repository but is not healthy at $Url. Inspect its logs or stop it with scripts/stop.ps1 before retrying."
+  }
+  $listeners = @(Get-PortListeners $Port)
+  if ($listeners.Count -gt 0) {
+    $owners = (($listeners | Select-Object -ExpandProperty OwningProcess -Unique) -join ", ")
+    throw "$Name is not healthy at $Url and port $Port is occupied by a non-managed listener (PID: $owners)."
+  }
+  return $false
+}
+
+function Start-Applications {
+  Write-Step "Starting application services"
+  $maven = Get-MavenCommand
+  $npm = Get-NpmCommand
+
+  $backendHealth = "http://127.0.0.1:$BackendPort/api/actuator/health"
+  if (-not (Test-ServiceCanBeReused "backend" ([int]$BackendPort) $backendHealth { Test-BackendHealth $backendHealth })) {
+    Start-ManagedProcess "backend" $maven @("spring-boot:run") $BackendDir
   }
 
-  if (Test-Path (Join-Path $AdminDir "package.json")) {
-    Ensure-AdminDeps
-    if ($Mode -eq "dev") {
-      Start-ServiceProcess "admin" $AdminDir "npm run dev"
-    } else {
-      Start-ServiceProcess "admin" $AdminDir "npm run preview -- --host 0.0.0.0 --port 4174"
-    }
+  $frontendUrl = "http://127.0.0.1:$FrontendPort/"
+  if (-not (Test-ServiceCanBeReused "frontend" ([int]$FrontendPort) $frontendUrl { Test-Frontend $frontendUrl 'content="projectku-user"' })) {
+    $frontendArgs = if ($Mode -eq "dev") { @("run", "dev", "--", "--host", "0.0.0.0", "--port", $FrontendPort) } else { @("run", "preview", "--", "--host", "0.0.0.0", "--port", $FrontendPort) }
+    Start-ManagedProcess "frontend" $npm $frontendArgs $FrontendDir
   }
 
-  Write-Host ""
-  Write-Host "Frontend: http://localhost:5173"
-  if ($Mode -eq "dev") {
-    Write-Host "Admin:    http://localhost:5174"
-  } else {
-    Write-Host "Admin:    http://localhost:4174"
+  $adminUrl = "http://127.0.0.1:$AdminPort/"
+  if (-not (Test-ServiceCanBeReused "admin" ([int]$AdminPort) $adminUrl { Test-Frontend $adminUrl 'content="projectku-admin"' })) {
+    $adminArgs = if ($Mode -eq "dev") { @("run", "dev", "--", "--host", "0.0.0.0", "--port", $AdminPort) } else { @("run", "preview", "--", "--host", "0.0.0.0", "--port", $AdminPort) }
+    Start-ManagedProcess "admin" $npm $adminArgs $AdminDir
   }
-  Write-Host "Backend:  http://localhost:8080/api"
+
+  Wait-ForService "backend" $backendHealth 120 { Test-BackendHealth $backendHealth }
+  Wait-ForService "frontend" $frontendUrl 60 { Test-Frontend $frontendUrl 'content="projectku-user"' }
+  Wait-ForService "admin" $adminUrl 60 { Test-Frontend $adminUrl 'content="projectku-admin"' }
+}
+
+if ($NoInstall) {
+  Write-Verbose "-NoInstall is accepted for backward compatibility; this script never installs system software."
 }
 
 Write-Step "Project root: $Root"
-Start-Compose
-Import-DbSchema
-Build-IfNeeded
-Start-App
+Start-Infrastructure
+Initialize-Database
+Build-Projects
+Start-Applications
+
+Write-Host ""
+Write-Host "User frontend:  http://localhost:$FrontendPort"
+Write-Host "Admin frontend: http://localhost:$AdminPort"
+Write-Host "Backend:        http://localhost:$BackendPort/api"
+Write-Host "Health:         http://localhost:$BackendPort/api/actuator/health"

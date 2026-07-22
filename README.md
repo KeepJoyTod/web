@@ -1,518 +1,252 @@
 # ProjectKu Web
 
-## 后台管理平台
+前后端分离的电商示例项目，包含用户端、管理端、Spring Boot API、MySQL、Redis，以及可选的 Prometheus/Grafana 监控。
 
-本项目已配备独立后台管理端：
+## 项目组成
 
-- 后端管理接口：`/api/v1/admin/**`
-- 管理端前端目录：`frontend-admin/`
-- 管理端地址：`http://localhost:5174`
-- 默认管理员：`admin@example.com`
-- 默认密码：`admin123`
-  
+| 模块 | 目录 | 技术 | 默认地址 |
+| --- | --- | --- | --- |
+| 用户端 | `frontend/` | Vue 3 + Vite | `http://localhost:5173` |
+| 管理端 | `frontend-admin/` | Vue 3 + Vite | `http://localhost:5174` |
+| 后端 | `back/` | Spring Boot 3 + MyBatis | `http://localhost:8080/api` |
+| 数据库 | `back/sql/` | MySQL 8 | `127.0.0.1:3306` |
+| 缓存 | Compose / 本地服务 | Redis | `127.0.0.1:6379` |
 
-如果是全新数据库，直接执行 `back/sql/init_db.sql` 即可，脚本已经包含默认管理员和后台所需字段。
+## 快速开始
 
-启动后台管理前端：
+环境要求：
+
+- JDK 17
+- Node.js `^20.19.0` 或 `>=22.12.0`
+- Docker Desktop / Docker Engine（推荐，用于 MySQL 和 Redis）
+- Git
+
+项目已包含 Maven Wrapper，不要求全局安装 Maven。Docker Compose 默认只启动 MySQL 和 Redis，不会容器化启动三个应用服务。
+
+把仓库交给 AI 时可直接发送：
+
+> 请在仓库根目录完成本地部署。先读取 `AGENTS.md` 和 `DEPLOYMENT.md`，查看 `git status`，运行对应平台的 doctor，再根据结果选择 Docker 或本机 MySQL/Redis 流程。不得自动安装系统软件、清库、删除 volume 或终止非本项目进程。启动后验证后端健康状态以及两个前端 HTTP 状态，并报告实际命令、日志和未验证项。
+
+### Windows PowerShell
 
 ```powershell
-cd d:\Java\class\projectKu\web\frontend-admin
-npm install
-npm run dev
+# 1. 只读检查环境
+powershell -ExecutionPolicy Bypass -File .\scripts\doctor.ps1
+
+# 2. 首次部署：启动基础设施、初始化空数据库、构建并启动三个应用
+powershell -ExecutionPolicy Bypass -File .\scripts\deploy.ps1 -InitDb
 ```
 
-后台依赖后端服务，请先启动 `back/` 下的 Spring Boot 服务。
-
-本项目为一个前后端分离的电商示例工程：
-
-- 后端：Spring Boot 3 + MyBatis + MySQL（端口 `8080`，上下文 `/api`）
-- 前端：Vue 3 + Vite（开发端口 `5173`）
-
-## 快速开始（推荐：Windows PowerShell 直接复制执行）
-
-前置：
-
-- 已安装并启动 MySQL
-- 已安装 JDK 17、Maven、Node.js
-- 已安装 MySQL 客户端（命令行 `mysql` 可用）
-
-在项目根目录依次执行：
+数据库已经初始化时，后续启动不要再传 `-InitDb`：
 
 ```powershell
-# 1) 初始化数据库（默认连接信息：root / 123456，数据库：web）
-mysql -uroot -p123456 -e "CREATE DATABASE IF NOT EXISTS web DEFAULT CHARSET utf8mb4;"
+powershell -ExecutionPolicy Bypass -File .\scripts\deploy.ps1
+```
 
-$sqls = @(
-  "back/sql/init_db.sql"
-)
+### Linux / macOS
 
-foreach ($f in $sqls) {
-  Write-Host "Importing $f ..."
-  Get-Content $f -Raw | mysql -uroot -p123456 web
-}
+```bash
+bash ./scripts/doctor.sh
+bash ./scripts/deploy.sh --init-db
+```
 
-# 2) 启动后端（新开一个终端执行）
+后续启动：
+
+```bash
+bash ./scripts/deploy.sh
+```
+
+### Docker 无法启动时
+
+`docker compose version` 成功只表示 Docker CLI 已安装，不代表 Docker daemon 可用。若 doctor 报告 `docker-daemon FAIL`，AI 不得把它判断为项目代码错误，也不得删除 volume、禁用 Redis、修改业务代码或直接终止未知进程。
+
+先创建本地配置，并按机器上的实际地址、端口和凭据修改 `.env`：
+
+```powershell
+Copy-Item .env.example .env
+```
+
+然后让 doctor 跳过 Docker，直接检查 `.env` 指向的 MySQL 和 Redis：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\doctor.ps1 -SkipDocker
+```
+
+```bash
+bash ./scripts/doctor.sh --skip-docker
+```
+
+根据结果选择：
+
+| 检查结果 | 处理方式 |
+| --- | --- |
+| MySQL、Redis 都可连接 | 使用下面的本机基础设施流程 |
+| 缺少其中任意一个 | 停止部署，请使用者先启动/安装缺失服务或修复 Docker |
+| 端口被其他程序占用 | 先识别占用进程，不得直接结束未知进程 |
+
+本机 MySQL/Redis 都可连接时，首次部署使用安全初始化脚本。脚本会创建不存在的数据库、拒绝非空数据库，并以字节流导入 SQL：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\init-local-db.ps1
+```
+
+```bash
+bash ./scripts/init-local-db.sh
+```
+
+初始化完成后跳过 Compose 启动应用：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\deploy.ps1 -SkipInfrastructure
+```
+
+```bash
+bash ./scripts/deploy.sh --skip-infrastructure
+```
+
+本机服务流程不要传 `-InitDb` / `--init-db`。如果本机没有 MySQL、Redis 或 `mysql` 命令行客户端，部署处于环境阻塞状态；AI 只能报告缺失项并请求使用者处理或授权。完整故障处理见 [DEPLOYMENT.md](DEPLOYMENT.md)。
+
+### 启动验证
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8080/api/actuator/health
+Invoke-WebRequest http://127.0.0.1:5173/ -UseBasicParsing
+Invoke-WebRequest http://127.0.0.1:5174/ -UseBasicParsing
+```
+
+浏览器入口：
+
+- 用户端：`http://localhost:5173`
+- 管理端：`http://localhost:5174`
+- 后端健康检查：`http://localhost:8080/api/actuator/health`
+- Swagger UI：`http://localhost:8080/api/swagger-ui.html`
+- OpenAPI JSON：`http://localhost:8080/api/v3/api-docs`
+
+种子账号：
+
+| 用途 | 账号 | 密码 |
+| --- | --- | --- |
+| 用户端 | `user@example.com` | `123456` |
+| 管理端 | `admin@example.com` | `admin123` |
+
+这些账号仅用于本地演示，不应复用于真实环境。
+
+## 配置
+
+默认值已经写在 Compose 和 Spring Boot 配置中；只有需要改端口或凭据时才复制模板：
+
+```powershell
+Copy-Item .env.example .env
+```
+
+`.env` 同时由 Docker Compose 和部署脚本读取，且已被 Git 忽略。主要变量：
+
+| 变量 | 默认值 | 用途 |
+| --- | --- | --- |
+| `DB_HOST` | `127.0.0.1` | 后端连接 MySQL 的地址 |
+| `DB_PORT` | `3306` | MySQL 宿主机端口及后端连接端口 |
+| `DB_NAME` | `web` | 数据库名 |
+| `DB_USER` | `root` | 数据库用户 |
+| `DB_PASSWORD` | `123456` | 仅限本地开发的默认密码 |
+| `REDIS_HOST` | `127.0.0.1` | 后端连接 Redis 的地址 |
+| `REDIS_PORT` | `6379` | Redis 宿主机端口及后端连接端口 |
+| `BACKEND_PORT` | `8080` | 后端端口 |
+| `FRONTEND_PORT` | `5173` | 用户端端口 |
+| `ADMIN_PORT` | `5174` | 管理端端口 |
+
+修改 MySQL 或 Redis 端口时只改 `.env`，不要分别修改 Compose 和 `application.yml`。
+
+同一台机器存在多个目录名相同的 clone 时，在每个 clone 的 `.env` 中设置不同的 `COMPOSE_PROJECT_NAME`，避免 Compose 项目互相接管；应用和基础设施端口也必须分别设置为未占用值。
+
+Compose 初始化流程固定使用 `DB_USER=root`；需要非 root 数据库账号时，请准备已有的本机/远程 MySQL，并使用 `-SkipInfrastructure` / `--skip-infrastructure`。
+
+## 常用命令
+
+```powershell
+# 仅预览部署动作，不启动服务
+powershell -ExecutionPolicy Bypass -File .\scripts\deploy.ps1 -DryRun -SkipInfrastructure
+
+# 仅预览本机数据库初始化，不执行 SQL
+powershell -ExecutionPolicy Bypass -File .\scripts\init-local-db.ps1 -DryRun
+
+# 停止由部署脚本记录的应用进程
+powershell -ExecutionPolicy Bypass -File .\scripts\stop.ps1
+
+# 同时停止 MySQL 和 Redis 容器
+powershell -ExecutionPolicy Bypass -File .\scripts\stop.ps1 -StopInfrastructure
+
+# 启动基础设施和监控
+docker compose --profile monitoring up -d
+```
+
+Linux/macOS 对应命令：`bash ./scripts/deploy.sh --dry-run --skip-infrastructure`、`bash ./scripts/init-local-db.sh --dry-run`、`bash ./scripts/stop.sh` 和 `bash ./scripts/stop.sh --stop-infrastructure`。
+
+## 手动启动
+
+希望逐项启动时，在三个终端执行：
+
+```powershell
 cd back
-mvn spring-boot:run
+.\mvnw.cmd spring-boot:run
 ```
-
-后端启动成功后，再新开一个终端在项目根目录执行：
 
 ```powershell
 cd frontend
-npm install
-npm run dev
+npm.cmd ci
+npm.cmd run dev
 ```
 
-访问：
+```powershell
+cd frontend-admin
+npm.cmd ci
+npm.cmd run dev
+```
 
-- 前端：`http://localhost:5173`
-- 后端：`http://localhost:8080/api`
+使用本机 MySQL/Redis、端口冲突、Docker daemon 不可用、`JAVA_HOME` 错误和数据库初始化规则见 [DEPLOYMENT.md](DEPLOYMENT.md)。把项目交给 AI 部署时，也应让它先读取该文件。
+
+## 构建与测试
+
+```powershell
+cd back
+.\mvnw.cmd -DskipTests compile
+
+cd ..\frontend
+npm.cmd run build
+npm.cmd run test:e2e
+
+cd ..\frontend-admin
+npm.cmd run build
+```
+
+用户端还提供 `test:login`、`test:register`、`test:navigation`、`test:product-detail`、`test:cart` 和 `test:checkout`。Playwright 测试要求后端、MySQL 和 Redis 已启动。
 
 ## 目录结构
 
-- `back/`：后端服务（Spring Boot）
-- `frontend/`：前端项目（Vue）
-- `back/sql/`：数据库建表与种子数据脚本
-- `prometheus/`：Prometheus 监控配置
-## 环境要求
-
-- JDK 17
-- Maven 3.8+
-- Node.js 18+（建议）
-- MySQL 8+（建议）
-
-## 数据库初始化
-
-1. 创建数据库 
-
-   
-   
-   
-
-## 启动后端
-
-在 `back/` 目录执行：
-
-```bash
-mvn spring-boot:run
-```
-
-后端默认地址：
-
-- `http://localhost:8080/api` (服务状态)
-- `http://localhost:8080/api/swagger-ui.html` (Swagger UI)
-- `http://localhost:8080/api/v1/products` (示例接口)
-
-### Swagger / OpenAPI 文档
-
-后端已集成 springdoc-openapi（Swagger UI）。
-
-配置位置：
-
-- `back/src/main/resources/application.yml`（`springdoc.*`）
-
-默认可访问：
-
-- Swagger UI：`http://localhost:8080/api/swagger-ui-custom.html`
-- OpenAPI JSON：`http://localhost:8080/api/api-docs`
-
-## 启动前端
-
-在 `frontend/` 目录执行：
-
-```bash
-npm install
-npm run dev
-```
-
-### Actuator 监控端点
-
-后端已集成 Spring Boot Actuator，用于监控和管理应用：
-
-- 健康检查：`http://localhost:8080/api/actuator/health`
-- Prometheus 指标：`http://localhost:8080/api/actuator/prometheus`
-- 所有端点：`http://localhost:8080/api/actuator`
-
-前端默认地址：
-
-- `http://localhost:5173`
-
-前端开发环境代理：
-
-- `frontend/vite.config.ts` 已将 `/api` 代理到 `http://localhost:8080`
-- 因此前端请求 `/api/v1/...` 会自动转发到后端
-
-## 图片说明（前端商品封面）
-
-前端会基于商品名做图片映射，以便展示更贴近商品类型的封面图：
-
-- 映射规则：`frontend/src/lib/productCovers.ts`
-- 详情页图片展示为“居中完整（contain）”，避免裁切
-
-
-## 监控体系（Prometheus + Grafana）
-
-项目已集成完整的监控体系，用于实时监控应用性能、JVM 状态、数据库连接等。
-
-### 组件说明
-
-| 组件 | 作用 |
-|------|------|
-| Spring Boot Actuator | 暴露应用健康状态和指标 |
-| Micrometer | 指标收集库 |
-| Prometheus | 时序数据库，存储和查询指标 |
-| Grafana | 可视化展示，创建仪表板 |
-
-### 启动监控服务
-
-确保 Docker 已启动，然后在项目根目录执行：
-
-```bash
-docker-compose up -d
-```
-
-这将启动：
-- Prometheus（端口 9090）
-- Grafana（端口 3000）
-
-### 访问地址
-
-| 服务 | 地址 | 默认账号密码 |
-|------|------|-------------|
-| **Grafana** | http://localhost:3000 | admin / admin |
-| **Prometheus** | http://localhost:9090 | 无需登录 |
-
-### Grafana 配置步骤
-
-1. 打开 http://localhost:3000 并登录（admin / admin）
-2. 添加 Prometheus 数据源：
-   - 点击左侧菜单 **Connections** → **Data sources**
-   - 点击 **Add data source**
-   - 选择 **Prometheus**
-   - URL 填写：`http://prometheus:9090`
-   - 点击 **Save & test**
-3. 导入预配置的仪表板（推荐）：
-   - JVM (Micrometer)：ID `4701`
-   - Spring Boot Statistics：ID `10280`
-   - HikariCP Connection Pool：ID `10856`
-
-### 主要监控指标
-
-- JVM 内存使用、GC 次数、线程数
-- HTTP 请求响应时间、QPS、错误率
-- HikariCP 数据库连接池状态
-- Redis 缓存命中率
-
-### 停止监控服务
-
-```bash
-docker-compose down
-```
-若外链图片加载失败，会自动回退到 SVG 占位图，避免页面出现空白封面。
-
-## 常用页面文件（前端）
-
-- 首页：`frontend/src/views/HomeView.vue`
-- 类目页：`frontend/src/views/CategoryView.vue`
-- 商品详情：`frontend/src/views/ProductDetailView.vue`
-
-## Playwright 冒烟测试
-
-项目已在 `frontend/tests/smoke.spec.ts` 中固化基础冒烟测试，用于快速确认后端接口、首页商品加载、登录页和未登录拦截是否正常。
-
-### 1) 启动依赖服务
-
-确保 MySQL、Redis 已启动。如果使用 Docker：
-
-```powershell
-cd web
-docker compose up -d
-```
-
-### 2) 启动后端
-
-新开一个 PowerShell：
-
-```powershell
-cd web\back
-mvn spring-boot:run
-```
-
-确认后端地址可访问：
-
 ```text
-http://127.0.0.1:8080/api/
+back/                 Spring Boot API、Maven Wrapper、SQL 初始化脚本
+frontend/             用户端 Vue 应用与 Playwright 测试
+frontend-admin/       管理端 Vue 应用
+scripts/              环境诊断、部署和停止脚本
+prometheus/           Prometheus 配置
+grafana/              Grafana provisioning
+docs/                 API、测试、监控和项目文档
+DEPLOYMENT.md          人工/AI 本地部署唯一事实源
 ```
 
-### 3) 运行冒烟测试
+## 提交前部署资产检查
 
-再新开一个 PowerShell：
+部署文件必须和 README 一起提交。推送前至少执行：
 
 ```powershell
-cd web\frontend
-npm.cmd run test:e2e
+git status --short
+git diff --check
+git ls-files --error-unmatch DEPLOYMENT.md scripts/doctor.ps1 scripts/doctor.sh scripts/deploy.ps1 scripts/deploy.sh scripts/init-local-db.ps1 scripts/init-local-db.sh scripts/stop.ps1 scripts/stop.sh back/mvnw back/mvnw.cmd back/.mvn/wrapper/maven-wrapper.properties
 ```
 
-Playwright 会根据 `frontend/playwright.config.ts` 自动启动前端 `http://127.0.0.1:5173`，不需要手动执行 `npm run dev`。
+GitHub 上的 `Deployment Check` 工作流会检查两种平台的脚本语法与 dry-run、Compose 配置、后端编译和两个前端构建。只有工作流成功后，才把对应提交作为小伙伴的部署基线。
 
-看到类似结果表示通过：
+## 部署说明
 
-```text
-4 passed
-```
-
-如需查看 HTML 报告：
-
-```powershell
-npx.cmd playwright show-report
-```
-
-说明：在 Windows PowerShell 中建议使用 `npm.cmd` / `npx.cmd`，避免直接运行 `npm` / `npx` 时被执行策略拦截。
-
-## Playwright 登录测试
-
-Playwright 自动化脚本已保存到：
-
-- `frontend/tests/login.spec.ts`
-
-默认登录账号来自数据库种子数据：
-
-- 账号：`user@example.com`
-- 密码：`123456`
-
-测试覆盖：
-
-- 登录 API 正确账号密码成功
-- 登录 API 错误密码失败
-- 登录页密码登录成功
-- 登录页错误密码显示错误提示
-- 未登录访问 `/checkout` 后登录，成功回跳 `/checkout`
-
-运行前需确保 MySQL、Redis 和后端服务已启动。后端启动方式：
-
-```powershell
-cd web\back
-mvn spring-boot:run
-```
-
-运行登录测试：
-
-```powershell
-cd web\frontend
-npm.cmd run test:login
-```
-
-如需使用其他账号密码：
-
-```powershell
-cd web\frontend
-$env:PLAYWRIGHT_LOGIN_ACCOUNT="user@example.com"
-$env:PLAYWRIGHT_LOGIN_PASSWORD="123456"
-npm.cmd run test:login
-```
-
-如需查看 HTML 报告：
-
-```powershell
-npx.cmd playwright show-report
-```
-
-## Playwright 注册测试
-
-Playwright 自动化脚本已保存到：
-
-- `frontend/tests/register.spec.ts`
-
-测试覆盖：
-
-- 注册 API 新账号成功
-- 注册 API 重复账号失败
-- 注册页必填项与协议勾选校验
-- 注册页邮箱注册成功并自动登录
-- 注册成功后按 `redirect` 回跳受保护页面
-- 重复账号注册时页面显示错误提示
-- 从注册页跳转登录时保留 `redirect` 参数
-
-运行注册测试：
-
-```powershell
-cd web\frontend
-npm.cmd run test:register
-```
-
-如需覆盖默认注册密码：
-
-```powershell
-cd web\frontend
-$env:PLAYWRIGHT_REGISTER_PASSWORD="123456"
-npm.cmd run test:register
-```
-
-## Playwright 核心页面跳转测试
-
-Playwright 自动化脚本已保存到：
-
-- `frontend/tests/navigation.spec.ts`
-
-测试覆盖：
-
-- 后端服务可访问
-- 公开核心路由可渲染
-- 底部导航可切换主页面
-- 首页分类快捷入口可跳转
-- 首页搜索可跳转搜索页
-- 商品卡片可跳转详情页
-- 未登录访问受保护页面会跳转登录页
-
-运行前需确保 MySQL、Redis 和后端服务已启动。后端启动方式：
-
-```powershell
-cd web\back
-mvn spring-boot:run
-```
-
-运行核心页面跳转测试：
-
-```powershell
-cd web\frontend
-npm.cmd run test:navigation
-```
-
-## Playwright 商品详情测试
-
-Playwright 自动化脚本已保存到：
-
-- `frontend/tests/product-detail.spec.ts`
-
-测试覆盖：
-
-- 商品详情 API 返回详情数据
-- 商品详情页可渲染核心信息
-- 无效商品 ID 显示空状态
-- 选择规格后可购买，数量可增加
-- 加入购物车写入本地购物车
-- 立即购买未登录跳转登录并保留购物车
-- 未登录点击收藏跳转登录
-
-运行前需确保 MySQL、Redis 和后端服务已启动。后端启动方式：
-
-```powershell
-cd back
-mvn spring-boot:run
-```
-
-运行商品详情测试：
-
-```powershell
-cd web\frontend
-npm.cmd run test:product-detail
-```
-
-## Playwright 购物车测试
-
-Playwright 自动化脚本已保存到：
-
-- `frontend/tests/cart.spec.ts`
-
-测试覆盖：
-
-- 空购物车显示空状态
-- 本地购物车商品可展示
-- 数量按钮可更新商品数量
-- 移除商品后显示空状态
-- 未登录结算跳转登录并保留购物车数据
-
-运行购物车测试：
-
-```powershell
-cd web\frontend
-npm.cmd run test:cart
-```
-
-## Playwright 下单 / 结算测试
-
-Playwright 自动化脚本已保存到：
-
-- `frontend/tests/checkout.spec.ts`
-
-测试覆盖：
-
-- 未登录访问 `/checkout` 跳转登录
-- 登录态空购物车显示空状态
-- 结算页展示购物车商品、地址、发票、优惠券和金额明细
-- 选择发票后抬头必填校验
-- 提交订单成功后创建后端订单并跳转收银台
-- 下单成功后清空本地购物车
-- 服务端空购物车调用下单接口失败
-- 服务端购物车调用下单接口成功并清空服务端购物车
-
-运行下单 / 结算测试：
-
-```powershell
-cd web\frontend
-npm.cmd run test:checkout
-```
-
-## Allure 测试报告
-
-项目已接入 Allure，用于把 Playwright 测试结果生成可视化报告。
-
-相关配置：
-
-- Playwright reporter：`frontend/playwright.config.ts`
-- Allure 结果目录：`frontend/allure-results/`
-- Allure 报告目录：`frontend/allure-report/`
-
-运行测试后会自动生成 `allure-results`。例如运行登录测试：
-
-```powershell
-cd web\frontend
-npm.cmd run test:login
-```
-
-生成 Allure HTML 报告：
-
-```powershell
-npm.cmd run allure:generate
-```
-
-打开已生成的 Allure 报告：
-
-```powershell
-npm.cmd run allure:open
-```
-
-也可以直接临时生成并打开报告：
-
-```powershell
-npm.cmd run allure:serve
-```
-
-说明：
-
-- `allure-results/` 和 `allure-report/` 是测试产物，已在 `frontend/.gitignore` 中忽略。
-- `frontend/tests/login.spec.ts` 已使用 `test.step` 标注关键步骤，Allure 报告中可以看到更清晰的执行过程。
-
-## 常见问题
-
-
-
-### (1) Maven 构建报错：`FileNotFoundException ... maven-surefire-common-3.1.2.jar.lastUpdated`
-
-通常是本机 Maven 本地仓库目录配置异常导致（例如 `localRepository` 指向了不可写/不完整路径）。
-
-解决方式（任选其一）：
-
-- 临时指定本地仓库到默认目录：
-
-```powershell
-cd back
-mvn -Dmaven.repo.local="$env:USERPROFILE\.m2\repository" -DskipTests spring-boot:run
-```
-
-- 或检查你本机 `~/.m2/settings.xml` 中的 `localRepository` 配置，修改为可写目录后重试。
-
-### 3) 监控相关问题
-
-详细的监控配置说明请参考 `docs/监控体系配置说明.md`。
+- 本仓库脚本面向本地开发和本地构建验证。
+- `-Mode prod` / `--mode=prod` 只是运行构建后的本地 preview，不是生产级 Web Server 或生产发布方案。
+- 不要把 `.env`、真实凭据、`mysql-data/`、`redis-data/`、`logs/`、`.pids/`、`dist/` 或 `target/` 提交到仓库。

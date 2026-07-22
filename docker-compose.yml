@@ -1,57 +1,59 @@
-version: "3.9"
-services:
-  mysql:
-    image: mysql:8.0
-    container_name: projectku-mysql
-    environment:
-      MYSQL_ROOT_PASSWORD: "123456"
-      MYSQL_DATABASE: "web"
-      TZ: "Asia/Shanghai"
-    volumes:
-      - ./mysql-data:/var/lib/mysql
-    ports:
-      - "3306:3306"
-    command: [
-      "mysqld",
-      "--default-authentication-plugin=mysql_native_password",
-      "--character-set-server=utf8mb4",
-      "--collation-server=utf8mb4_unicode_ci"
-    ]
+services:
+  mysql:
+    image: mysql:8.0.42
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-123456}
+      MYSQL_DATABASE: ${DB_NAME:-web}
+      TZ: Asia/Shanghai
+    ports:
+      - "${DB_PORT:-3306}:3306"
+    volumes:
+      - ./mysql-data:/var/lib/mysql
+    command:
+      - mysqld
+      - --default-authentication-plugin=mysql_native_password
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
 
   redis:
-
-    image: redis:7-alpine
-
-    container_name: projectku-redis
-
+    image: redis:7.4.2-alpine
     ports:
-
-      - "6379:6379"
-
+      - "${REDIS_PORT:-6379}:6379"
     volumes:
-
       - ./redis-data:/data
-
     command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
   prometheus:
-    image: prom/prometheus:latest
-    container_name: projectku-prometheus
+    image: prom/prometheus:v3.5.0
+    profiles: ["monitoring"]
     ports:
       - "9090:9090"
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus-data:/prometheus
     command:
-      - "--config.file=/etc/prometheus/prometheus.yml"
-      - "--storage.tsdb.path=/prometheus"
-      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
-      - "--web.console.templates=/usr/share/prometheus/consoles"
-      - "--web.enable-remote-write-receiver"
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.console.libraries=/usr/share/prometheus/console_libraries
+      - --web.console.templates=/usr/share/prometheus/consoles
+      - --web.enable-remote-write-receiver
 
   grafana:
-    image: grafana/grafana:latest
-    container_name: projectku-grafana
+    image: grafana/grafana:12.1.0
+    profiles: ["monitoring"]
+    depends_on:
+      - prometheus
     ports:
       - "3000:3000"
     environment:

@@ -1,0 +1,144 @@
+name: Deployment Check
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/deployment-check.yml"
+      - ".gitattributes"
+      - ".env.example"
+      - ".nvmrc"
+      - "AGENTS.md"
+      - "DEPLOYMENT.md"
+      - "README.md"
+      - "docker-compose.yml"
+      - "scripts/**"
+      - "back/**"
+      - "frontend/package.json"
+      - "frontend/package-lock.json"
+      - "frontend-admin/package.json"
+      - "frontend-admin/package-lock.json"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/deployment-check.yml"
+      - ".gitattributes"
+      - ".env.example"
+      - ".nvmrc"
+      - "AGENTS.md"
+      - "DEPLOYMENT.md"
+      - "README.md"
+      - "docker-compose.yml"
+      - "scripts/**"
+      - "back/**"
+      - "frontend/package.json"
+      - "frontend/package-lock.json"
+      - "frontend-admin/package.json"
+      - "frontend-admin/package-lock.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deployment-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+          cache-dependency-path: back/pom.xml
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            frontend-admin/package-lock.json
+
+      - name: Validate Bash scripts
+        shell: bash
+        run: |
+          for file in scripts/*.sh back/mvnw; do
+            bash -n "$file"
+          done
+
+      - name: Validate Compose configuration
+        run: |
+          docker compose config --quiet
+          docker compose --profile monitoring config --quiet
+
+      - name: Exercise deployment dry runs
+        run: |
+          bash ./scripts/init-local-db.sh --dry-run
+          bash ./scripts/deploy.sh --dry-run --skip-infrastructure
+
+      - name: Compile backend with Maven Wrapper
+        working-directory: back
+        run: bash ./mvnw -B -DskipTests compile
+
+      - name: Build user frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Build admin frontend
+        working-directory: frontend-admin
+        run: |
+          npm ci
+          npm run build
+
+  windows-dry-run:
+    runs-on: windows-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Validate PowerShell scripts
+        shell: pwsh
+        run: |
+          $errors = @()
+          Get-ChildItem scripts -Filter *.ps1 | ForEach-Object {
+            $tokens = $null
+            $fileErrors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile(
+              $_.FullName,
+              [ref]$tokens,
+              [ref]$fileErrors
+            )
+            $errors += $fileErrors
+          }
+          if ($errors.Count -gt 0) {
+            $errors | Format-List | Out-String | Write-Error
+            exit 1
+          }
+
+      - name: Exercise Windows deployment dry run
+        shell: pwsh
+        run: |
+          .\scripts\init-local-db.ps1 -DryRun
+          .\scripts\deploy.ps1 -DryRun -SkipInfrastructure

@@ -1,13 +1,15 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
+const backendPort = process.env.BACKEND_PORT ?? '8080'
+
 export default defineConfig({
   plugins: [vue()],
   server: {
     port: 5174,
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:8080',
+        target: `http://127.0.0.1:${backendPort}`,
         changeOrigin: true,
       },
     },

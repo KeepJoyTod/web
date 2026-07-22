@@ -60,6 +60,11 @@
             <artifactId>spring-boot-starter-cache</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+        </dependency>
+
         <!-- Springdoc OpenAPI (Swagger) -->
         <dependency>
             <groupId>org.springdoc</groupId>

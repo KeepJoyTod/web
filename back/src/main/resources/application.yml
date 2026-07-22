@@ -1,16 +1,15 @@
 server:
-  port: 8080
+  port: ${BACKEND_PORT:8080}
   servlet:
     context-path: /api
 
 spring:
   application:
-   
     name: web
   datasource:
-    url: jdbc:mysql://localhost:3309/web?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
-    username: root
-    password: 123456
+    url: jdbc:mysql://${DB_HOST:127.0.0.1}:${DB_PORT:3306}/${DB_NAME:web}?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${DB_USER:root}
+    password: ${DB_PASSWORD:123456}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       maximum-pool-size: 20
@@ -21,9 +20,9 @@ spring:
       pool-name: ProjectKu-HikariCP
   data:
     redis:
-      host: localhost
-      port: 6379
-      database: 0
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      database: ${REDIS_DATABASE:0}
       timeout: 5000
   cache:
     type: redis

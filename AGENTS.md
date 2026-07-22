@@ -56,3 +56,15 @@
 - 直接说明不确定点，不要隐藏在模糊措辞里。
 - 给出下一步如何验证，例如要查哪个文件、运行哪个命令、访问哪个官方文档。
 - 可以提供保守建议，但必须标明它是建议而非已验证事实。
+
+## 本地部署任务协议
+
+- `DEPLOYMENT.md` 是本仓库本地部署的唯一事实源；部署前必须读取它以及 `.env.example`、`docker-compose.yml` 和 `back/src/main/resources/application.yml`。
+- 第一步运行只读诊断：Windows 使用 `powershell -ExecutionPolicy Bypass -File .\scripts\doctor.ps1`，Linux/macOS 使用 `bash ./scripts/doctor.sh`。
+- 默认使用 `scripts/deploy.ps1` 或 `scripts/deploy.sh`，不得另写依赖本机绝对路径的临时启动方案。
+- 部署脚本不安装系统软件。缺少 JDK 或 Node 时，报告缺失项并等待所有者处理或授权；缺少 Docker 时，仅在本机 MySQL/Redis 诊断通过后使用本机服务流程。
+- Docker CLI 可用不代表 daemon 可用；必须通过 `docker info` 验证。daemon 不可用但本机 MySQL/Redis 已启动时，可选择 `-SkipInfrastructure` / `--skip-infrastructure`。
+- Docker 不可用时，doctor 使用 `-SkipDocker` / `--skip-docker` 检查 `.env` 指向的本机 MySQL/Redis；首次空库使用 `scripts/init-local-db.ps1` / `scripts/init-local-db.sh`，不要手写字符串管道导入 SQL。
+- `-InitDb` / `--init-db` 仅允许用于空数据库。导入失败时保留原数据库并改用新 `DB_NAME` 重试；禁止自动删除 `mysql-data/`、`redis-data/`、Docker volume、已有表或用户数据。
+- 端口冲突时先识别占用进程，不得直接终止未知进程。自定义 MySQL/Redis 端口通过根目录 `.env` 统一设置。
+- 完成标准：后端 `/api/actuator/health` 返回 `UP`，用户端 `5173` 和管理端 `5174` 返回 HTTP 200，并报告实际命令与日志位置。
