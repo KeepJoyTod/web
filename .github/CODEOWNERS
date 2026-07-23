@@ -1,7 +1,4 @@
-# Draft policy: replace these recommended team slugs with existing teams before merge.
-# Code Owners are an approval gate only; this file never grants the AI merge bot bypass.
-/.github/ @KeepJoyTod/web-maintainers
-/frontend/src/components/ @KeepJoyTod/frontend-owners
-/frontend-admin/ @KeepJoyTod/frontend-owners
-/back/ @KeepJoyTod/backend-owners
-* @KeepJoyTod/web-maintainers
+# Bootstrap ownership for the repository owner. Replace with verified teams
+# only after their membership, visibility, and review responsibilities are set.
+# This file is an approval mapping; it never grants an AI merge bot bypass.
+* @KeepJoyTod
