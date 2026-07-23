@@ -330,6 +330,8 @@ start_applications() {
     start_process backend "$BACKEND_DIR" "${maven_command[@]}" spring-boot:run
   fi
 
+  wait_service backend "$backend_health" 120 backend_up "$backend_health"
+
   if [[ "$MODE" == "dev" ]]; then
     frontend_command=(npm --prefix "$FRONTEND_DIR" run dev -- --host 0.0.0.0 --port "$FRONTEND_PORT")
     admin_command=(npm --prefix "$ADMIN_DIR" run dev -- --host 0.0.0.0 --port "$ADMIN_PORT")
@@ -362,7 +364,6 @@ start_applications() {
     start_process admin "$ADMIN_DIR" "${admin_command[@]}"
   fi
 
-  wait_service backend "$backend_health" 120 backend_up "$backend_health"
   wait_service frontend "$frontend_url" 60 frontend_up "$frontend_url" 'content="projectku-user"'
   wait_service admin "$admin_url" 60 frontend_up "$admin_url" 'content="projectku-admin"'
 }

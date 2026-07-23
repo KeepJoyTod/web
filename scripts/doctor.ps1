@@ -80,6 +80,14 @@ function Add-LocalPortResult([string]$Name, [int]$Port) {
   }
 }
 
+function Get-LocalServiceFallbackDetail {
+  return "Docker Compose cannot be used. From the project root, run: powershell -ExecutionPolicy Bypass -File .\scripts\doctor.ps1 -SkipDocker. If MySQL and Redis diagnostics pass, start with: powershell -ExecutionPolicy Bypass -File .\scripts\deploy.ps1 -SkipInfrastructure."
+}
+
+function Get-BackendHealthVerificationDetail {
+  return "TCP reachability alone is insufficient. After deployment, GET http://127.0.0.1:$BackendPort/api/actuator/health must return UP with db=UP and redis=UP."
+}
+
 function Test-JdkHome([string]$Path) {
   if ([string]::IsNullOrWhiteSpace($Path)) { return $false }
   try {
@@ -156,6 +164,7 @@ if (-not $SkipDocker) {
   $docker = Resolve-Command @("docker.exe", "docker")
   if (-not $docker) {
     Add-Result "docker-cli" "FAIL" "Docker was not found in PATH."
+    Add-Result "docker-fallback" "INFO" (Get-LocalServiceFallbackDetail)
   } else {
     Add-Result "docker-cli" "PASS" $docker
     & $docker info *> $null
@@ -163,6 +172,7 @@ if (-not $SkipDocker) {
       Add-Result "docker-daemon" "PASS" "Docker daemon is reachable."
     } else {
       Add-Result "docker-daemon" "FAIL" "Docker CLI is installed, but the daemon is not reachable. Start Docker Desktop or Docker Engine."
+      Add-Result "docker-fallback" "INFO" (Get-LocalServiceFallbackDetail)
     }
 
     Push-Location $Root
@@ -193,7 +203,7 @@ if ($SkipDocker) {
         }
         Add-Result "mysql-protocol" $(if ($mysqlExitCode -eq 0) { "PASS" } else { "FAIL" }) $(if ($mysqlExitCode -eq 0) { "MySQL connection and credentials were accepted." } else { "MySQL rejected the connection or credentials." })
       } else {
-        Add-Result "mysql-client" "WARN" "mysql CLI was not found; protocol and credentials were not checked."
+        Add-Result "mysql-client" "WARN" ("mysql CLI was not found; TCP only confirms the port accepted a connection, not the MySQL protocol, credentials, or database. Do not run init-local-db without mysql CLI. " + (Get-BackendHealthVerificationDetail))
       }
     }
   }
@@ -207,7 +217,7 @@ if ($SkipDocker) {
         $redisExitCode = $LASTEXITCODE
         Add-Result "redis-protocol" $(if ($redisExitCode -eq 0 -and $redisReply -eq "PONG") { "PASS" } else { "FAIL" }) $(if ($redisExitCode -eq 0 -and $redisReply -eq "PONG") { "Redis PING returned PONG." } else { "Redis PING did not return PONG." })
       } else {
-        Add-Result "redis-client" "WARN" "redis-cli was not found; protocol was not checked."
+        Add-Result "redis-client" "WARN" ("redis-cli was not found; TCP only confirms the port accepted a connection, not the Redis protocol response. " + (Get-BackendHealthVerificationDetail))
       }
     }
   }

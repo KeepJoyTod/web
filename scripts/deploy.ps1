@@ -485,6 +485,7 @@ function Start-Applications {
   if (-not (Test-ServiceCanBeReused "backend" ([int]$BackendPort) $backendHealth { Test-BackendHealth $backendHealth })) {
     Start-ManagedProcess "backend" $maven @("spring-boot:run") $BackendDir
   }
+  Wait-ForService "backend" $backendHealth 120 { Test-BackendHealth $backendHealth }
 
   $frontendUrl = "http://127.0.0.1:$FrontendPort/"
   if (-not (Test-ServiceCanBeReused "frontend" ([int]$FrontendPort) $frontendUrl { Test-Frontend $frontendUrl 'content="projectku-user"' })) {
@@ -498,7 +499,6 @@ function Start-Applications {
     Start-ManagedProcess "admin" $npm $adminArgs $AdminDir
   }
 
-  Wait-ForService "backend" $backendHealth 120 { Test-BackendHealth $backendHealth }
   Wait-ForService "frontend" $frontendUrl 60 { Test-Frontend $frontendUrl 'content="projectku-user"' }
   Wait-ForService "admin" $adminUrl 60 { Test-Frontend $adminUrl 'content="projectku-admin"' }
 }

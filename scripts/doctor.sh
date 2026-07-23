@@ -36,6 +36,9 @@ DB_USER="${DB_USER:-root}"
 DB_PASSWORD="${DB_PASSWORD:-123456}"
 REDIS_HOST="${REDIS_HOST:-127.0.0.1}"
 REDIS_PORT="${REDIS_PORT:-6379}"
+BACKEND_PORT="${BACKEND_PORT:-8080}"
+IS_DARWIN=0
+[[ "$(uname -s 2>/dev/null || true)" == "Darwin" ]] && IS_DARWIN=1
 
 result() {
   printf '%-18s %-5s %s\n' "$1" "$2" "$3"
@@ -43,10 +46,62 @@ result() {
   return 0
 }
 
+local_service_fallback_detail() {
+  printf '%s' 'Docker Compose cannot be used. From the project root, run: bash ./scripts/doctor.sh --skip-docker. If MySQL and Redis diagnostics pass, start with: bash ./scripts/deploy.sh --skip-infrastructure.'
+}
+
+backend_health_verification_detail() {
+  printf 'TCP reachability alone is insufficient. After deployment, GET http://127.0.0.1:%s/api/actuator/health must return UP with db=UP and redis=UP.' "$BACKEND_PORT"
+}
+
+macos_preflight() {
+  [[ "$IS_DARWIN" == "1" ]] || return 0
+
+  local architecture bash_major ps_lstart ps_command
+  architecture="$(uname -m 2>/dev/null || true)"
+  case "$architecture" in
+    arm64|x86_64) result macos-architecture PASS "$architecture" ;;
+    *) result macos-architecture WARN "reported '$architecture'; verify Docker Desktop supports this architecture" ;;
+  esac
+
+  bash_major="${BASH_VERSINFO[0]:-0}"
+  if [[ "$bash_major" =~ ^[0-9]+$ && "$bash_major" -ge 3 ]]; then
+    result macos-bash PASS "Bash $BASH_VERSION"
+  else
+    result macos-bash FAIL "Bash 3.2+ is required; invoke this script with bash, not sh or zsh"
+  fi
+
+  if ! command -v ps >/dev/null 2>&1; then
+    result macos-ps-identity FAIL "ps is required to verify managed-process identity"
+    return 0
+  fi
+
+  ps_lstart="$(ps -p "$$" -o lstart= 2>/dev/null | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+  ps_command="$(ps -p "$$" -o command= 2>/dev/null | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+  if [[ -n "$ps_lstart" && -n "$ps_command" ]]; then
+    result macos-ps-identity PASS "lstart and command fields are available"
+  else
+    result macos-ps-identity FAIL "ps must provide non-empty lstart and command fields for PID identity checks"
+  fi
+}
+
+macos_docker_desktop_boundary() {
+  [[ "$IS_DARWIN" == "1" ]] || return 0
+
+  if [[ -w "$ROOT" ]]; then
+    result macos-project-directory PASS "writable by the current user"
+  else
+    result macos-project-directory FAIL "not writable by the current user"
+  fi
+  result macos-docker-sharing INFO "docker info does not verify Docker Desktop bind-mount sharing. Confirm the project directory is shared before Compose mounts ./mysql-data and ./redis-data."
+}
+
 [[ "$DB_PORT" =~ ^[0-9]+$ && "$DB_PORT" -ge 1 && "$DB_PORT" -le 65535 ]] || result config-DB_PORT FAIL "DB_PORT must be between 1 and 65535"
 [[ "$REDIS_PORT" =~ ^[0-9]+$ && "$REDIS_PORT" -ge 1 && "$REDIS_PORT" -le 65535 ]] || result config-REDIS_PORT FAIL "REDIS_PORT must be between 1 and 65535"
 [[ "$DB_NAME" =~ ^[A-Za-z0-9_]+$ ]] || result config-DB_NAME FAIL "DB_NAME may contain only letters, numbers, and underscores"
 [[ "$DB_USER" =~ ^[A-Za-z0-9_]+$ ]] || result config-DB_USER FAIL "DB_USER may contain only letters, numbers, and underscores"
+
+macos_preflight
 
 for file in DEPLOYMENT.md back/pom.xml back/mvnw back/sql/init_db.sql frontend/package.json frontend-admin/package.json docker-compose.yml .env.example scripts/deploy.sh scripts/init-local-db.sh; do
   if [[ -f "$ROOT/$file" ]]; then
@@ -105,7 +160,7 @@ if [[ "$SKIP_DOCKER" == "1" ]]; then
         && result mysql-protocol PASS "connection and credentials accepted" \
         || result mysql-protocol FAIL "connection or credentials rejected"
     else
-      result mysql-client WARN "mysql CLI not found; protocol and credentials were not checked"
+      result mysql-client WARN "mysql CLI not found; TCP only confirms the port accepted a connection, not the MySQL protocol, credentials, or database. Do not run init-local-db without mysql CLI. $(backend_health_verification_detail)"
     fi
   else
     result mysql-tcp FAIL "$DB_HOST:$DB_PORT not reachable"
@@ -117,17 +172,24 @@ if [[ "$SKIP_DOCKER" == "1" ]]; then
         && result redis-protocol PASS "PING returned PONG" \
         || result redis-protocol FAIL "PING did not return PONG"
     else
-      result redis-client WARN "redis-cli not found; protocol was not checked"
+      result redis-client WARN "redis-cli not found; TCP only confirms the port accepted a connection, not the Redis protocol response. $(backend_health_verification_detail)"
     fi
   else
     result redis-tcp FAIL "$REDIS_HOST:$REDIS_PORT not reachable"
   fi
 elif command -v docker >/dev/null 2>&1; then
   result docker-cli PASS "$(command -v docker)"
-  docker info >/dev/null 2>&1 && result docker-daemon PASS "reachable" || result docker-daemon FAIL "not reachable"
+  if docker info >/dev/null 2>&1; then
+    result docker-daemon PASS "reachable"
+    macos_docker_desktop_boundary
+  else
+    result docker-daemon FAIL "not reachable"
+    result docker-fallback INFO "$(local_service_fallback_detail)"
+  fi
   (cd "$ROOT" && docker compose config --quiet >/dev/null 2>&1) && result compose-config PASS "valid" || result compose-config FAIL "invalid"
 else
   result docker-cli FAIL "not found"
+  result docker-fallback INFO "$(local_service_fallback_detail)"
 fi
 
 if [[ -f "$ROOT/.env" ]]; then result .env INFO "present; values not printed"; else result .env INFO "absent; local defaults will be used"; fi
