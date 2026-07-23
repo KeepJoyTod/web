@@ -1,0 +1,22 @@
+# AI Merge input denylist. Collector must enforce this file before prompting.
+.env*
+.github/**
+api_testcases/**
+back/sql/**
+back/src/main/resources/**
+docker-compose*.yml
+frontend-admin/**
+frontend/package-lock.json
+frontend/src/lib/**
+frontend/src/router/**
+frontend/src/stores/**
+frontend/src/views/**
+scripts/**
+**/*.cmd
+**/*.jar
+**/*.lock
+**/*.ps1
+**/*.sh
+**/*.sql
+**/*.yaml
+**/*.yml

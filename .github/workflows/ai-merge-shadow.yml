@@ -1,0 +1,45 @@
+name: AI Merge Shadow Static
+
+on:
+  pull_request_target:
+    branches: [main]
+    types: [opened, reopened, synchronize, ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shadow-static-verification:
+    name: Shadow static evidence validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GITHUB_TOKEN: ''
+    steps:
+      # pull_request_target always reads this workflow from the trusted base.
+      # Do not checkout or execute the pull request worktree in Shadow mode.
+      - name: Checkout trusted base revision
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.base.sha || github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+          token: ''
+
+      - name: Verify pull request diff without executing it
+        if: github.event_name == 'pull_request_target'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$HEAD_SHA"
+          git diff --check "$BASE_SHA" "$HEAD_SHA"
+          git diff --name-only "$BASE_SHA" "$HEAD_SHA"
+
+      - name: Verify tracked Shadow controls
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          test -f Makefile
+          test -f .ai-ignore
+          test -f .github/CODEOWNERS
