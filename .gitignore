@@ -114,3 +114,6 @@ htmlcov/
 新建 文本文档.txt
 /start_all.bat
 /start_all.sh
+
+# Local deployment troubleshooting records
+/docs/local-deployment-issues-*.md

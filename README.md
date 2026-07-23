@@ -279,7 +279,15 @@ git diff --check
 git ls-files --error-unmatch DEPLOYMENT.md scripts/doctor.ps1 scripts/doctor.sh scripts/deploy.ps1 scripts/deploy.sh scripts/init-local-db.ps1 scripts/init-local-db.sh scripts/stop.ps1 scripts/stop.sh back/mvnw back/mvnw.cmd back/.mvn/wrapper/maven-wrapper.properties
 ```
 
-GitHub 上的 `Deployment Check` 工作流会检查两种平台的脚本语法与 dry-run、Compose 配置、后端编译和两个前端构建。只有工作流成功后，才把对应提交作为小伙伴的部署基线。
+GitHub 上的 `Deployment Check` 工作流会检查 Linux、Windows 和 macOS 的脚本语法与 dry-run；Linux/macOS Job 还会编译后端并构建两个前端，Linux Job 会校验 Compose 配置。只有相应 Job 实际成功后，才把对应提交作为该平台的部署基线。
+
+### macOS CI 与目标机验收
+
+工作流定义了托管 macOS Runner Job `macos-dry-run`。该 Job 配置 JDK 17 和 `.nvmrc` 指定的 Node.js，检查 Bash 脚本语法、`macos-architecture` / `macos-bash` / `macos-ps-identity` doctor 输出、数据库初始化与跳过基础设施的部署 dry-run，并编译后端、构建两个前端。工作流文件存在不代表 Job 已运行；只有 GitHub Actions 中该 Job 实际完成且成功，才产生这部分验证证据。
+
+`macos-dry-run` 当前不启动 Docker Compose 或应用进程，因此不能取代 Docker Desktop 图形界面状态、bind mount 目录共享、真实镜像拉取、容器完整启动和三个 HTTP 入口的目标机器验收。每台首次使用的 macOS 应至少完成一次人工验收：确认 Docker Desktop 正在运行且项目目录可共享，执行 `bash ./scripts/doctor.sh`；目标数据库为空时执行 `bash ./scripts/deploy.sh --init-db`，已有表时省略 `--init-db`；仅在后端健康检查为 `UP` 且两个前端均返回 HTTP `200` 后接受结果。数据库非空、端口归属或目录共享不明确时停止并由使用者确认。
+
+需要持续验证特定 Mac 硬件、网络或 Docker Desktop 行为时，可由项目所有者决定维护自托管 macOS Runner。它不应被自动创建、注册或配置真实凭据；除非工作流另行显式增加 Docker 与完整启动测试，否则它同样不能填补上述验收缺口。
 
 ## 部署说明
 
