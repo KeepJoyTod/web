@@ -1,4 +1,4 @@
-# ProjectKu Web
+#  Web
 
 前后端分离的电商示例项目，包含用户端、管理端、Spring Boot API、MySQL、Redis，以及可选的 Prometheus/Grafana 监控。
 

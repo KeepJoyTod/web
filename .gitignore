@@ -117,3 +117,6 @@ htmlcov/
 
 # Local deployment troubleshooting records
 /docs/local-deployment-issues-*.md
+
+# Local AI knowledge base
+/docs/ai-kb/
